@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MH Store
+Comment=Gestão comercial e PDV offline
+Exec=MHStore
+Icon=mhstore
+Terminal=false
+Categories=Office;Finance;
+StartupNotify=true

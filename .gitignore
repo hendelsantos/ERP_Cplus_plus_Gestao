@@ -34,3 +34,8 @@ CMakeUserPresets.json
 diagnostics.ini
 session.active
 operations.log.*
+
+# Pacotes de distribuição
+/dist/
+*.deb
+__pycache__/

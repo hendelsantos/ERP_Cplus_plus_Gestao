@@ -1,0 +1,14 @@
+**
+!desktop/
+!desktop/**
+!packaging/
+!packaging/**
+!docs/
+!docs/distribuicao.md
+**/*.sqlite*
+**/*.db*
+**/*.mhb*
+**/*.ini
+**/*.log*
+**/.env*
+**/__pycache__/**

@@ -1,6 +1,6 @@
 # Continuidade — MH Store ERP
 
-Revisão: 20/09/2026. A prioridade atual está em [docs/proximas-entregas.md](docs/proximas-entregas.md). As entregas de backup automático e robustez/diagnóstico foram implementadas; a próxima é **instalador e distribuição**.
+Revisão: 20/09/2026. A prioridade atual está em [docs/proximas-entregas.md](docs/proximas-entregas.md). As entregas de backup automático e robustez/diagnóstico foram implementadas; a entrega em validação é **instalador e distribuição**, com pacote Linux e testes isolados; desktop físico e Windows permanecem pendentes.
 
 ## Como retomar
 
@@ -33,6 +33,6 @@ Suíte completa: diagnóstico, cadastros, estoque, caixa/PDV, financeiro, backup
 
 ## Próximo passo
 
-Seguir a entrega 3 de `docs/proximas-entregas.md`: empacotamento com dependências, instalação limpa e atualização preservando dados. Considerar a validação Windows prevista na estrutura do projeto. O diagnóstico implementado é documentado em `docs/diagnostico.md`, com níveis, rotação, verificação SQLite e teste de transação interrompida. Preservar funcionamento offline e atualizar checklist e evidências a cada entrega validada.
+Continuar a entrega 3 de `docs/proximas-entregas.md`: o empacotamento `.deb` Ubuntu 24.04 e a validação em contêiner estão em `scripts/package-linux.sh` e `docs/distribuicao.md`. Completar validação em desktop real, abertura pelo menu e atualização entre versões distintas. Considerar a validação Windows prevista na estrutura do projeto. O diagnóstico implementado é documentado em `docs/diagnostico.md`, com níveis, rotação, verificação SQLite e teste de transação interrompida. Preservar funcionamento offline e atualizar checklist e evidências a cada entrega validada.
 
 Instaladores, demonstrações por segmento, recursos comerciais finais e licenciamento vêm depois, na ordem do roteiro. Emissão fiscal e sincronização em nuvem têm escopo próprio.

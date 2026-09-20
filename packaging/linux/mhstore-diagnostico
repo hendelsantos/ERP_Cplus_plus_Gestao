@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+"""Read-only support summary. Does not export business data or credentials."""
+import json
+import os
+import pathlib
+import sqlite3
+import subprocess
+
+
+def package_version(name):
+    result = subprocess.run(["dpkg-query", "-W", "-f=${Version}", name],
+                            capture_output=True, text=True, check=False)
+    return result.stdout.strip() if result.returncode == 0 else "não instalado"
+
+
+def main():
+    base = os.environ.get("XDG_DATA_HOME", "")
+    if not os.path.isabs(base):
+        base = str(pathlib.Path.home() / ".local/share")
+    folder = pathlib.Path(base) / "MHSoftware" / "MH Store"
+    database = folder / "mhstore.sqlite"
+    report = {"aplicativo": package_version("mhstore"), "qt": package_version("libqt6core6t64"),
+              "banco": str(database), "logs": str(folder / "logs"),
+              "marcador_de_sessao_presente": (folder / "session.active").exists(),
+              "observacao": "Marcador também existe durante uso normal. Caminhos podem identificar o usuário local."}
+    if database.is_file():
+        try:
+            connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=2)
+            try:
+                report["esquema"] = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+            finally:
+                connection.close()
+        except sqlite3.Error:
+            report["erro"] = "Banco indisponível ou inválido; preserve o arquivo e consulte o suporte."
+    else:
+        report["esquema"] = "Banco ainda não criado para este usuário."
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

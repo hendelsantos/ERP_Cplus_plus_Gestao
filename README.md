@@ -247,3 +247,9 @@ A migração **10** acrescenta subtotal, desconto, acréscimo e justificativa. V
 ## Diagnóstico e recuperação na inicialização
 
 Administradores podem consultar **Configurações → Empresa e módulos → Diagnóstico** para ver versões, caminhos e configurar o nível de log. Logs locais possuem rotação e registram eventos fixos sem SQL, credenciais ou dados dos clientes. A inicialização detecta sessões interrompidas e verifica a integridade do SQLite antes de migrar; falhas apresentam orientação e preservam o banco. Consulte [docs/diagnostico.md](docs/diagnostico.md) para funcionamento e limites.
+
+## Pacote Linux de validação
+
+A geração do instalador Ubuntu 24.04 está em `./scripts/package-linux.sh`. O processo usa Docker para compilar, testar, gerar o `.deb` em `dist/` e verificar a instalação isoladamente. O apt resolve as dependências; não é necessário preparar Qt manualmente no computador do cliente. A instalação inicial pode exigir internet, mas a operação permanece offline.
+
+Consulte [docs/distribuicao.md](docs/distribuicao.md) para instalação, atualização, remoção sem apagar dados e diagnóstico. A distribuição Windows e os testes em desktop físico continuam pendentes.

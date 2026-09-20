@@ -95,6 +95,7 @@ if(BUILD_TESTING)
     target_include_directories(pos_tests PRIVATE src)
     target_link_libraries(pos_tests PRIVATE Qt6::Test Qt6::Sql Qt6::Gui)
     add_test(NAME pos_tests COMMAND pos_tests)
+    set_tests_properties(pos_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(finance_tests
         tests/finance_test.cpp
         src/modules/finance/finance.cpp
@@ -145,3 +146,22 @@ foreach(app_target MHStore diagnostics_tests catalog_tests inventory_tests pos_t
             target_link_libraries(${app_target} PRIVATE Qt6::PrintSupport)
     endif()
 endforeach()
+
+# Native Linux package: Qt/QML dependencies are resolved by apt, never by a
+# developer-specific LD_LIBRARY_PATH. CMake strips the build RPATH at install.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    install(PROGRAMS ../packaging/linux/mhstore-diagnostico DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES ../packaging/linux/mhstore.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES ../packaging/linux/mhstore.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+    install(FILES ../docs/distribuicao.md DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/mhstore)
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_PACKAGE_NAME "mhstore")
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_CONTACT "MHSoftware")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "MH Store - gestao comercial offline")
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "python3, libqt6sql6-sqlite, qt6-qpa-plugins, qml6-module-qtqml, qml6-module-qtqml-models, qml6-module-qtqml-workerscript, qml6-module-qtquick, qml6-module-qtquick-controls, qml6-module-qtquick-layouts, qml6-module-qtquick-templates, qml6-module-qtquick-window")
+    include(CPack)
+endif()
