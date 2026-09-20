@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 15) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 16) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -162,6 +162,10 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("ALTER TABLE sale_items_new RENAME TO sale_items"),
         QStringLiteral("CREATE INDEX sale_items_sale ON sale_items(sale_id)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (15)")
+    }, {
+        QStringLiteral("ALTER TABLE products ADD COLUMN size TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN color TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (16)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

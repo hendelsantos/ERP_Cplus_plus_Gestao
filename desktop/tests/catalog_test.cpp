@@ -254,7 +254,7 @@ private slots:
         customer["birth_date"]="2000-02-29";
         customer["address"]=QString(161,'a'); QVERIFY(!catalog.save("Clientes",1,customer));
         QVariantMap product{{"name","Produto"},{"code","P"},{"cost_price","1"},{"sale_price","2"},{"minimum_stock","3"},
-            {"maximum_stock","10,5"},{"brand"," Marca "},{"unit","UN"},{"location","A1"},{"notes","Teste"}};
+            {"maximum_stock","10,5"},{"brand"," Marca "},{"unit","UN"},{"size","M"},{"color","Azul"},{"location","A1"},{"notes","Teste"}};
         QVERIFY(catalog.save("Produtos",0,product));
         for(const auto &maximum : {"-1","nan","abc","2"}) {
             product["maximum_stock"]=maximum; QVERIFY(!catalog.save("Produtos",1,product));
@@ -271,6 +271,10 @@ private slots:
         catalog.search("Produtos");
         QCOMPARE(catalog.rows().first().toMap().value("maximum_stock").toDouble(),10.5);
         QCOMPARE(catalog.rows().first().toMap().value("brand").toString(),QString("Marca"));
+        QVERIFY(q.exec("SELECT size,color FROM products WHERE code='P'"));
+        QVERIFY(q.next());
+        QCOMPARE(q.value(0).toString(),QString("M"));
+        QCOMPARE(q.value(1).toString(),QString("Azul"));
         QSqlDatabase::database().close(); QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
     }
     void upgradeFromVersionSeven()

@@ -592,7 +592,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),15);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),16);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }

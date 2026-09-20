@@ -19,7 +19,9 @@ inline bool removeAdjustmentMigration() {
     if (!q.exec("ALTER TABLE payments_old RENAME TO payments")) return false;
     if (!q.exec("DROP TABLE IF EXISTS expenses")) return false;
     if (!q.exec("DROP TABLE IF EXISTS receivables")) return false;
-    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14,15)");
+    for (const auto &column : {"size", "color"})
+        if (!q.exec(QString("ALTER TABLE products DROP COLUMN %1").arg(column))) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14,15,16)");
 }
 inline bool removeComplementaryMigration() {
     if (!removeAdjustmentMigration()) return false;

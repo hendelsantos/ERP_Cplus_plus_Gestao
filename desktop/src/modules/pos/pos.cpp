@@ -267,7 +267,7 @@ bool Pos::add(int productId)
         if (row.value("id").toInt() == productId) return setQuantity(productId, row.value("quantity").toInt()+1);
     }
     QSqlQuery q;
-    q.prepare("SELECT id, code, name, sale_price_cents, stock_quantity FROM products WHERE id = ? AND active = 1");
+    q.prepare("SELECT id, code, name, sale_price_cents, stock_quantity, size, color FROM products WHERE id = ? AND active = 1");
     q.addBindValue(productId);
     if (!q.exec()) return fail(q.lastError().text());
     if (!q.next()) return fail("Produto não encontrado ou inativo.");
@@ -276,8 +276,11 @@ bool Pos::add(int productId)
     if (q.value(4).toDouble() < 1) return fail("Estoque insuficiente.");
     if (subtotal() + price > limit) return fail("Valor da venda acima do limite.");
     resetAdjustments();
+    const auto size = q.value(5).toString();
+    const auto color = q.value(6).toString();
+    const auto variant = size.isEmpty() ? color : (color.isEmpty() ? size : size + " / " + color);
     m_cart.append(QVariantMap{{"id",productId},{"code",q.value(1)},{"name",q.value(2)},
-        {"unit_price_cents",price},{"quantity",1},{"total_cents",price}});
+        {"variant",variant},{"unit_price_cents",price},{"quantity",1},{"total_cents",price}});
     m_error.clear(); emit changed(); return true;
 }
 bool Pos::setQuantity(int productId, int quantity)

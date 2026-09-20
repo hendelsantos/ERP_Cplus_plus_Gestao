@@ -24,7 +24,7 @@ QString fieldLabels(const QStringList &fields) {
         {"category_id","Categoria"},{"supplier_id","Fornecedor"},
         {"cost_price","Preço de custo"},{"sale_price","Preço de venda"},
         {"minimum_stock","Estoque mínimo"},{"maximum_stock","Estoque máximo"},
-        {"brand","Marca"},{"unit","Unidade"},{"location","Localização"},
+        {"brand","Marca"},{"unit","Unidade"},{"size","Tamanho"},{"color","Cor"},{"location","Localização"},
         {"document","Documento"},{"phone","Telefone"},{"email","E-mail"},
         {"address","Endereço"},{"birth_date","Nascimento"},{"notes","Observações"}
     };
@@ -141,12 +141,16 @@ bool Catalog::save(const QString &section, int id, const QVariantMap &values)
         data.insert("sale_price_cents", qRound64(data.value("sale_price").toDouble() * 100));
         const auto brand = values.value("brand", QStringLiteral("")).toString().trimmed();
         const auto unit = values.value("unit", QStringLiteral("")).toString().trimmed();
+        const auto size = values.value("size", QStringLiteral("")).toString().trimmed();
+        const auto color = values.value("color", QStringLiteral("")).toString().trimmed();
         const auto location = values.value("location", QStringLiteral("")).toString().trimmed();
         const auto notes = values.value("notes", QStringLiteral("")).toString().trimmed();
-        if (brand.size() > 60 || unit.size() > 10 || location.size() > 60 || notes.size() > 500)
-            return fail(QStringLiteral("Marca e localização aceitam até 60 caracteres; unidade, 10; observações, 500."));
+        if (brand.size() > 60 || unit.size() > 10 || size.size() > 20 || color.size() > 40 || location.size() > 60 || notes.size() > 500)
+            return fail(QStringLiteral("Marca e localização aceitam até 60 caracteres; unidade, 10; tamanho, 20; cor, 40; observações, 500."));
         data.insert("brand", brand);
         data.insert("unit", unit);
+        data.insert("size", size);
+        data.insert("color", color);
         data.insert("location", location);
         data.insert("notes", notes);
         const int category = values.value("category_id").toInt();

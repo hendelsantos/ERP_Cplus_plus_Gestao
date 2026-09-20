@@ -124,7 +124,7 @@ ColumnLayout {
                 required property var modelData
                 width: ListView.view.width
                 height: 70
-                text: modelData.code + " — " + modelData.name + "\n" + page.money(modelData.sale_price_cents) + " • Estoque: " + modelData.stock_quantity
+                text: modelData.code + " — " + modelData.name + (modelData.size || modelData.color ? " (" + [modelData.size,modelData.color].filter(Boolean).join(" / ") + ")" : "") + "\n" + page.money(modelData.sale_price_cents) + " • Estoque: " + modelData.stock_quantity
                 onClicked: page.pos.add(modelData.id)
             }
             Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Nenhum produto encontrado." }
@@ -145,7 +145,7 @@ ColumnLayout {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 8
-                    Label { text: modelData.name + " • " + page.money(modelData.total_cents); elide: Text.ElideRight; Layout.fillWidth: true }
+                    Label { text: modelData.name + (modelData.variant ? " (" + modelData.variant + ")" : "") + " • " + page.money(modelData.total_cents); elide: Text.ElideRight; Layout.fillWidth: true }
                     RowLayout {
                         Button { text: "−"; onClicked: page.pos.setQuantityValue(modelData.id,String(Number(modelData.quantity)-1)) }
                         TextField {

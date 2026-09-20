@@ -118,6 +118,8 @@ No PDV, produtos com unidade como KG podem ser vendidos com quantidades de até 
 
 Após finalizar uma venda, o comprovante não fiscal pode ser exportado para PDF pelo diálogo de venda concluída.
 
+Produtos podem registrar tamanho e cor opcionais, exibidos no cadastro e no carrinho do PDV. O estoque separado por variação ainda será implementado.
+
 Vendas consideradas: somente as concluídas, agrupadas pelo horário local do computador. Estoque crítico inclui produtos ativos com saldo menor ou igual ao mínimo; produtos sem estoque também entram nessa contagem. Sem vendas, o ticket médio é zero. Sem caixa aberto, o saldo é zero e o painel informa que não há sessão aberta.
 
 O painel atualiza ao abrir o aplicativo, ao voltar para **Dashboard**, a cada minuto enquanto está visível ou pelo botão **Atualizar painel**. Uma falha de consulta exibe indicadores indisponíveis, em vez de apresentar dados antigos como atuais. Indicadores financeiros, gráficos e exportações ainda estão pendentes.
