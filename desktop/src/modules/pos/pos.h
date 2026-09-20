@@ -74,6 +74,7 @@ public:
     Q_INVOKABLE bool checkout(int sessionId, const QString &method, const QString &tendered, const QString &operatorName, int customerId = 0);
     Q_INVOKABLE bool cancelSale(int saleId, const QString &reason);
 signals:
+    void cashClosed();
     void changed();
     void customersChanged();
     void salesChanged();

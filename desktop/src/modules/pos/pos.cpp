@@ -361,7 +361,7 @@ bool Pos::closeCash(int sessionId, const QString &counted, const QString & /*ope
     q.addBindValue(expected); q.addBindValue(cents); q.addBindValue(cents/100.0); q.addBindValue(operatorName.trimmed()); q.addBindValue(Auth::userId()); q.addBindValue(sessionId);
     if (!q.exec()) return fail(q.lastError().text());
     if (!tx.commit()) return fail(tx.db.lastError().text());
-    refresh(m_search); return true;
+    refresh(m_search); emit cashClosed(); return true;
 }
 void Pos::selectCashHistory(int sessionId)
 {

@@ -6,11 +6,13 @@
 #include <QSqlQuery>
 #include <QSqlDatabase>
 #include <QFile>
+#include <QCryptographicHash>
 
 class BackupTest : public QObject {
     Q_OBJECT
     QTemporaryDir directory;
     QString path;
+    QByteArray digest(const QString &file) { QFile f(file); if(!f.open(QIODevice::ReadOnly)) return {}; return QCryptographicHash::hash(f.readAll(),QCryptographicHash::Sha256); }
     QVariant scalar(const QString &sql) { QSqlQuery q(sql); return q.next()?q.value(0):QVariant(); }
 private slots:
     void init() {
@@ -120,7 +122,9 @@ private slots:
         QVERIFY(db.initialize(nullptr,path));
         QVERIFY(authenticateTestAdmin());
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Minha empresa"));
-        QVERIFY(!backup.restore(saved));
+        const auto original=digest(saved);
+        QVERIFY2(backup.restore(saved),qPrintable(backup.message()));
+        QCOMPARE(digest(saved),original);
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
         QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),20);
     }
@@ -141,7 +145,9 @@ private slots:
         const auto old=directory.filePath("version8.mhb");
         q.prepare("VACUUM INTO ?"); q.addBindValue(old); QVERIFY(q.exec());
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
-        QVERIFY(!backup.restore(old));
+        const auto original=digest(old);
+        QVERIFY2(backup.restore(old),qPrintable(backup.message()));
+        QCOMPARE(digest(old),original);
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
     }
     void adjustmentBackupCompatibility() {
@@ -159,8 +165,104 @@ private slots:
         const auto old=directory.filePath("version9.mhb");
         q.prepare("VACUUM INTO ?"); q.addBindValue(old); QVERIFY(q.exec());
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
-        QVERIFY(!backup.restore(old));
+        const auto original=digest(old);
+        QVERIFY2(backup.restore(old),qPrintable(backup.message()));
+        QCOMPARE(digest(old),original);
         QCOMPARE(scalar("SELECT total_cents FROM sales").toInt(),950);
+    }
+    void automaticScheduleRetentionAndFailure() {
+        MHStore::Backup backup;
+        const auto folder=directory.filePath(QUuid::createUuid().toString());
+        QVERIFY(!backup.configureAutomatic(true,"relative",60,2));
+        QVERIFY(!backup.configureAutomatic(true,folder,0,2));
+        QVERIFY(!backup.configureAutomatic(true,folder,60,0));
+        QVERIFY(backup.configureAutomatic(true,folder,60,2));
+        QVERIFY(backup.create(folder));
+        const auto manual=backup.files().first().toMap().value("path").toString();
+        const auto safety=QDir(folder).filePath("antes_restauracao_preservar.mhb");
+        QVERIFY(QFile::copy(manual,safety));
+        const auto unrelated=QDir(folder).filePath("auto_outra_instalacao.mhb");
+        QVERIFY(QFile::copy(manual,unrelated));
+        MHStore::Auth::resetSession();
+        QVERIFY(!backup.configureAutomatic(false,folder,60,2));
+        backup.startScheduler();
+        QTRY_VERIFY_WITH_TIMEOUT(backup.automatic().value("last_success").toLongLong()>0,10000);
+        QVERIFY(!backup.busy());
+        backup.runAutomatic(); QVERIFY(!backup.busy());
+        for(int i=0;i<3;++i) {
+            backup.runAutomatic(true); QVERIFY(backup.busy());
+            QTRY_VERIFY_WITH_TIMEOUT(!backup.busy(),10000);
+            QVERIFY2(backup.automaticMessage().startsWith("Backup automático criado"),qPrintable(backup.automaticMessage()));
+        }
+        QCOMPARE(QDir(folder).entryList({"auto_*_v20_*.mhb"},QDir::Files).size(),2);
+        QVERIFY(QFile::exists(manual)); QVERIFY(QFile::exists(safety)); QVERIFY(QFile::exists(unrelated));
+        QVERIFY(authenticateTestAdmin());
+        backup.list(folder);
+        for(const auto &row:backup.files()) {
+            QVERIFY(row.toMap().value("valid").toBool());
+            QCOMPARE(row.toMap().value("version").toInt(),20);
+        }
+        MHStore::Backup reloaded;
+        QCOMPARE(reloaded.automatic(),backup.automatic());
+        // A file cannot be used as a destination directory. Failed jobs preserve old copies.
+        QVERIFY(backup.configureAutomatic(true,manual,60,2));
+        backup.runAutomatic(true);
+        QTRY_VERIFY_WITH_TIMEOUT(!backup.busy(),10000);
+        QVERIFY(backup.automaticMessage().contains("Não foi possível"));
+        QCOMPARE(backup.automatic().value("last_success").toLongLong(),0);
+        QCOMPARE(QDir(folder).entryList({"auto_*_v20_*.mhb"},QDir::Files).size(),2);
+        QVERIFY(QFile::exists(manual));
+        QFile corrupt(QDir(folder).filePath("corrupt.mhb"));
+        QVERIFY(corrupt.open(QIODevice::WriteOnly)); corrupt.write("invalid sqlite"); corrupt.close();
+        backup.list(folder);
+        bool found=false;
+        for(const auto &row:backup.files()) if(row.toMap().value("path")==corrupt.fileName()) {
+            found=true; QVERIFY(!row.toMap().value("valid").toBool());
+        }
+        QVERIFY(found);
+        QVERIFY(!backup.restore(corrupt.fileName()));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
+    }
+    void automaticSnapshotRestoresDataAndKeepsPolicy() {
+        MHStore::Backup backup;
+        const auto folder=directory.filePath(QUuid::createUuid().toString());
+        QVERIFY(backup.configureAutomatic(true,folder,30,3));
+        backup.runAutomatic(true);
+        // A cash-close request while copying must cause another snapshot afterwards.
+        backup.runAutomatic(true);
+        QTRY_VERIFY_WITH_TIMEOUT(!backup.busy(),10000);
+        QCOMPARE(QDir(folder).entryList({"auto_*.mhb"},QDir::Files).size(),2);
+        backup.list(folder);
+        const auto saved=backup.files().first().toMap().value("path").toString();
+        QSqlQuery q; QVERIFY(q.exec("UPDATE products SET stock_quantity=1"));
+        const auto policy=backup.automatic();
+        QVERIFY2(backup.restore(saved),qPrintable(backup.message()));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
+        QCOMPARE(backup.automatic(),policy);
+        backup.runAutomatic(true); QVERIFY(!backup.busy());
+    }
+    void unsupportedAndUnmigratableBackupsLeaveLiveDataUntouched() {
+        MHStore::Backup backup;
+        const auto folder=directory.filePath(QUuid::createUuid().toString());
+        QVERIFY(backup.create(folder));
+        const auto saved=backup.files().first().toMap().value("path").toString();
+        for(bool future : {true,false}) {
+            {
+                auto source=QSqlDatabase::addDatabase("QSQLITE","invalid_migration");
+                source.setDatabaseName(saved); QVERIFY(source.open());
+                QSqlQuery q(source);
+                // A future version must be rejected. A falsified old version must
+                // fail migration without modifying the original or the live DB.
+                QVERIFY(q.exec("DELETE FROM schema_migrations"));
+                QVERIFY(q.exec(future ? "INSERT INTO schema_migrations(version) VALUES(999)" : "INSERT INTO schema_migrations(version) VALUES(1)"));
+            }
+            QSqlDatabase::removeDatabase("invalid_migration");
+            const auto original=digest(saved);
+            QVERIFY(!backup.restore(saved));
+            QCOMPARE(digest(saved),original);
+            QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),20);
+            QCOMPARE(scalar("SELECT name FROM products").toString(),QString("Produto"));
+        }
     }
     void incompatibleSchema() {
         MHStore::Backup backup;

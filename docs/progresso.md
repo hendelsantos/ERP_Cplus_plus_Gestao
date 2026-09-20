@@ -344,3 +344,15 @@ Item marcado [x] no roteiro e Etapa 2 concluída. Próxima entrega: descontos e 
 - Auditoria `sale.adjust` na mesma transação de venda, itens, pagamento e estoque; falha de auditoria desfaz toda a venda.
 - Migração 10 preenche o subtotal histórico a partir do total e mantém ajustes antigos zerados. Restauração direta passa a exigir esquema idêntico e versão 10.
 - UI de aplicação dos ajustes, resumo e detalhes persistidos. Percentuais, ajuste por item e rateio para devoluções permanecem fora desta entrega.
+
+## 20/09/2026 — Backup automático e recuperação (próximas entregas, item 1)
+
+- Agendamento administrativo com pasta, intervalo de 1 a 10.080 minutos e retenção de 1 a 100 cópias. Desativado por padrão; política local em `<banco>.backup.ini`, preservada ao restaurar dados.
+- Verificação ao iniciar e a cada minuto, mais solicitação após fechamento bem-sucedido do caixa. Uma solicitação durante uma cópia agenda outra ao terminar. Execução em thread e conexão SQLite próprias, independente de login; saída aguarda cópia em andamento.
+- Snapshot SQLite consistente, verificação de integridade/vínculos antes de publicar `.mhb`, nome com versão e horário UTC. Retenção executada somente após sucesso, restrita a nomes automáticos da instalação, sem seguir links simbólicos; preserva backups manuais e anteriores à restauração.
+- Listagem identifica integridade e versão. Falhas de destino, criação, validação e retenção têm mensagem na tela. Falha de criação não apaga cópias nem avança o último sucesso.
+- Restauração de versões 1–20 migra uma cópia temporária em conexão nomeada, valida estrutura final e mantém o arquivo original. Preserva requisitos de autorização, caixa fechado, carrinho vazio, cópia anterior e rollback transacional. Versões futuras e migrações incompatíveis são rejeitadas.
+- Testes: agendamento inicial sem login, intervalo não vencido, retenção e preservação de cópias, configuração persistida, destino indisponível, corrupção, restauração automática, configuração preservada, backups antigos 4/8/9 sem alteração do arquivo original, versão futura e falha de migração. Interface testa o formulário de agendamento.
+- Banco permanece no **esquema 20**, sem nova migração. Roteiro e continuidade atualizados; próximo item: robustez e diagnóstico.
+
+Validação: compilação concluída e **6/6 conjuntos de testes aprovados** (119,64 s), sem avisos QML; execução em bancos temporários. Não houve simulação de disco fisicamente cheio nem queda de energia real; falha de destino não gravável e rollback são cobertos automaticamente. Windows e distribuição em máquina limpa continuam pendentes.

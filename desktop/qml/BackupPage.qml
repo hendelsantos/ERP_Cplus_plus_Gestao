@@ -11,8 +11,47 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         TextField { id: folder; objectName: "backupFolder"; text: page.backup.folder; placeholderText: "Caminho completo da pasta"; Layout.fillWidth: true }
-        Button { text: "Criar backup"; onClicked: page.backup.create(folder.text) }
+        Button { text: "Criar backup"; enabled: !page.backup.busy; onClicked: page.backup.create(folder.text) }
         Button { text: "Listar arquivos"; onClicked: page.backup.list(folder.text) }
+    }
+    Button { text: "Agendar backups"; enabled: !page.backup.busy; onClicked: autoDialog.open() }
+    Label { text: page.backup.automaticMessage; visible: text.length>0; Layout.fillWidth: true; wrapMode: Text.Wrap }
+    Dialog {
+        id: autoDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(560,parent.width-32)
+        modal: true
+        title: "Backup automático"
+        onOpened: {
+            autoEnabled.checked=!!page.backup.automatic.enabled
+            autoFolder.text=page.backup.automatic.folder
+            interval.value=page.backup.automatic.minutes
+            retention.value=page.backup.automatic.retention
+            autoError.text=""
+        }
+        contentItem: ColumnLayout {
+            CheckBox { id: autoEnabled; text: "Ativar backup automático"; objectName: "autoEnabled" }
+            TextField { id: autoFolder; objectName: "autoFolder"; placeholderText: "Pasta de destino"; Layout.fillWidth: true }
+            RowLayout {
+                Label { text: "Intervalo (minutos)" }
+                SpinBox { id: interval; from: 1; to: 10080; editable: true }
+                Label { text: "Manter" }
+                SpinBox { id: retention; from: 1; to: 100; editable: true }
+            }
+            Label { text: "Verifica ao iniciar e a cada minuto; copia ao vencer o intervalo e após fechar o caixa. Retenção remove somente cópias automáticas desta instalação, após criar uma cópia válida. A configuração fica neste computador, fora do backup."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { id: autoError; Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#b42318" }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar agendamento"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { text: "Salvar agendamento"; DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
+                onClicked: {
+                    if(page.backup.configureAutomatic(autoEnabled.checked,autoFolder.text,interval.value,retention.value)) autoDialog.close()
+                    else autoError.text=page.backup.message
+                }
+            }
+            onRejected: autoDialog.close()
+        }
     }
     Label { text: page.backup.message; wrapMode: Text.Wrap; Layout.fillWidth: true }
     Label { text: "Arquivos disponíveis na pasta • Nome, data de modificação e tamanho"; color: "#6d7781"; Layout.fillWidth: true; wrapMode: Text.Wrap }
@@ -35,9 +74,9 @@ ColumnLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
                     Label { text: modelData.name; elide: Text.ElideMiddle; Layout.fillWidth: true }
-                    Label { text: modelData.date + " • " + Math.ceil(modelData.size/1024) + " KB"; color: "#6d7781" }
+                    Label { text: modelData.date + " • " + Math.ceil(modelData.size/1024) + " KB • " + (modelData.valid ? "Íntegro • esquema " + modelData.version : "Inválido / versão não suportada"); color: "#6d7781" }
                 }
-                Button { text: "Selecionar"; onClicked: restoreFile.text = modelData.path }
+                Button { text: "Selecionar"; enabled: modelData.valid && !page.backup.busy; onClicked: restoreFile.text = modelData.path }
             }
         }
         Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Nenhum backup .mhb nesta pasta." }
@@ -46,7 +85,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         TextField { id: restoreFile; objectName: "restoreFile"; placeholderText: "Caminho completo do arquivo .mhb"; Layout.fillWidth: true }
-        Button { text: "Restaurar backup"; enabled: restoreFile.text.length > 0; onClicked: { confirmation.file = restoreFile.text; confirmation.open() } }
+        Button { text: "Restaurar backup"; enabled: restoreFile.text.length > 0 && !page.backup.busy; onClicked: { confirmation.file = restoreFile.text; confirmation.open() } }
     }
     Label { text: "Restauração substitui os dados atuais. Feche o caixa e limpe o carrinho. Backups devem ser compatíveis com esta versão."; wrapMode: Text.Wrap; Layout.fillWidth: true; color: "#6d7781" }
     Dialog {

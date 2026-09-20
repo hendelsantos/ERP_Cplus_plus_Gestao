@@ -25,3 +25,7 @@ CMakeUserPresets.json
 *.swp
 *~
 .DS_Store
+
+# Política local de backup automático
+*.backup.ini
+*.mhb.partial

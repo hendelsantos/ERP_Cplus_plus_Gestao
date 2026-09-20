@@ -383,6 +383,12 @@ private slots:
             QVERIFY(audit.entries().first().toMap().value("details").toString().contains("empresa=Loja modular"));
             QVERIFY(click("Configurações"));
             QVERIFY(click("Backup local"));
+            QVERIFY(click("Agendar backups"));
+            QVERIFY(fill("autoFolder", directory.filePath("automatic")));
+            QVERIFY(click("Ativar backup automático"));
+            QVERIFY(click("Salvar agendamento"));
+            QVERIFY(backup.automatic().value("enabled").toBool());
+            QCOMPARE(backup.automatic().value("folder").toString(),directory.filePath("automatic"));
             QVERIFY(fill("backupFolder", directory.filePath("copies")));
             QVERIFY(click("Criar backup"));
             QCOMPARE(backup.files().size(),1);

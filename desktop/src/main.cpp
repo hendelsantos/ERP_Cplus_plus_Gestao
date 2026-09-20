@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
     auth.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
     settings.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
     backup.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
+    QObject::connect(&pos,&MHStore::Pos::cashClosed,&backup,[&backup] { backup.runAutomatic(true); });
     QObject::connect(&backup, &MHStore::Backup::restored, &application, &QCoreApplication::quit, Qt::QueuedConnection);
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("authStore", &auth);
@@ -63,5 +64,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    backup.startScheduler();
     return application.exec();
 }

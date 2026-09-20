@@ -9,7 +9,7 @@
 
 namespace MHStore::Database {
 
-bool DatabaseManager::initialize(QString *errorMessage, const QString &databasePath)
+bool DatabaseManager::initialize(QString *errorMessage, const QString &databasePath, const QString &connectionName)
 {
     const auto dataDirectory = databasePath.isEmpty()
         ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
@@ -21,8 +21,8 @@ bool DatabaseManager::initialize(QString *errorMessage, const QString &databaseP
         return false;
     }
 
-    auto database = QSqlDatabase::contains() ? QSqlDatabase::database()
-        : QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
+    auto database = QSqlDatabase::contains(connectionName) ? QSqlDatabase::database(connectionName)
+        : QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),connectionName);
     database.setDatabaseName(databasePath.isEmpty()
         ? dataDirectory + QStringLiteral("/mhstore.sqlite") : databasePath);
     if (!database.open()) {
@@ -32,12 +32,11 @@ bool DatabaseManager::initialize(QString *errorMessage, const QString &databaseP
         return false;
     }
 
-    return applyMigrations(errorMessage);
+    return applyMigrations(errorMessage,database);
 }
 
-bool DatabaseManager::applyMigrations(QString *errorMessage)
+bool DatabaseManager::applyMigrations(QString *errorMessage, QSqlDatabase database)
 {
-    auto database = QSqlDatabase::database();
     QSqlQuery query(database);
     if (!query.exec(QStringLiteral("PRAGMA foreign_keys = ON")) ||
         !query.exec(QStringLiteral("PRAGMA busy_timeout = 5000"))) {

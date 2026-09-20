@@ -1,5 +1,7 @@
 # Estrutura e roteiro — MH Store ERP
 
+Prioridade de execução atual: [docs/proximas-entregas.md](docs/proximas-entregas.md).
+
 Referência de trabalho para as próximas etapas. Atualizado em 20/09/2026.
 
 ## Regra de acompanhamento
@@ -93,7 +95,7 @@ Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto
 | Cancelamento e devolução | Pendente | Permissões, justificativa e estorno transacional |
 | Financeiro | Pendente | Contas a pagar/receber, despesas e baixas |
 | Dashboard | Indicadores básicos disponíveis | Novos indicadores e relatórios conforme dados existentes |
-| Backup local | Manual e restauração disponíveis | Agendamento e compatibilidade com versões anteriores |
+| Backup local | Manual, automático, retenção e migração controlada na restauração | Compactação e destino remoto |
 | Auditoria administrativa e de cadastros | Usuários, senhas, códigos, configurações e cadastros | Ampliar conforme novas operações sensíveis |
 | Licença, atualização e instalador | Pendentes | Distribuição e validação comercial em Windows |
 
@@ -185,7 +187,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ### Etapa 6 — Recuperação e distribuição
 
-- [ ] Backup automático local e restauração de backups antigos com migração controlada.
+- [x] Backup automático local e restauração de backups antigos com migração controlada.
 - [ ] Logging e diagnóstico sem expor credenciais.
 - [ ] Compilação e testes em Windows.
 - [ ] Instalador com Qt, OpenSSL e demais dependências.

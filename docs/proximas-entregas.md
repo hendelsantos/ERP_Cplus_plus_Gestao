@@ -33,22 +33,24 @@ Criar cópias locais periódicas do banco SQLite sem exigir uma ação manual do
 
 ### Escopo
 
-- backup automático ao iniciar o sistema, quando necessário;
-- backup automático ao fechar o aplicativo ou o caixa;
-- intervalo configurável;
-- pasta de destino configurável;
-- retenção dos últimos arquivos;
-- validação de integridade após a criação;
-- identificação de data, hora e versão do schema;
-- restauração com confirmação e criação de cópia de segurança anterior.
+- [x] backup automático ao iniciar o sistema, quando necessário;
+- [x] backup automático ao fechar o aplicativo ou o caixa;
+- [x] intervalo configurável;
+- [x] pasta de destino configurável;
+- [x] retenção dos últimos arquivos;
+- [x] validação de integridade após a criação;
+- [x] identificação de data, hora e versão do schema;
+- [x] restauração com confirmação e criação de cópia de segurança anterior.
 
 ### Critérios de conclusão
 
-- o sistema cria backups sem interromper o fluxo normal;
-- arquivos inválidos não são apresentados como válidos;
-- backups antigos podem ser restaurados com migração controlada;
-- falhas de disco ou permissão aparecem com mensagem clara;
-- testes cobrem criação, retenção, corrupção e restauração.
+- [x] o sistema cria backups sem interromper o fluxo normal;
+- [x] arquivos inválidos não são apresentados como válidos;
+- [x] backups antigos podem ser restaurados com migração controlada;
+- [x] falhas de disco ou permissão aparecem com mensagem clara;
+- [x] testes cobrem criação, retenção, corrupção e restauração.
+
+Entrega 1 implementada no esquema 20, sem nova migração. Evidências e limites em `progresso.md`; operação em `../README.md`. Próxima entrega: robustez e diagnóstico.
 
 ## 2. Robustez e diagnóstico
 

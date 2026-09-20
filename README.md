@@ -132,7 +132,7 @@ O painel atualiza ao abrir o aplicativo, ao voltar para **Dashboard**, a cada mi
 
 ## Backup local e restauração
 
-Em **Configurações → Backup local**, informe o caminho completo da pasta e clique em **Criar backup**. O arquivo `.mhb` contém uma cópia SQLite consistente, validada antes de informar sucesso. Pode ser criado com o caixa aberto. **Listar arquivos** mostra os backups presentes na pasta, com data de modificação e tamanho; não é um registro de auditoria de operações.
+Em **Configurações → Backup local**, informe o caminho completo da pasta e clique em **Criar backup**. O arquivo `.mhb` contém uma cópia SQLite consistente, validada antes de informar sucesso. Pode ser criado com o caixa aberto. **Listar arquivos** mostra os backups presentes na pasta, com data de modificação, tamanho, integridade e versão do esquema; não é um registro de auditoria de operações.
 
 Para restaurar:
 
@@ -142,12 +142,20 @@ Para restaurar:
 4. O sistema verifica integridade, vínculos e compatibilidade, cria uma cópia `antes_restauracao_*.mhb` na subpasta `backups` do diretório de dados e restaura em transação.
 5. Após o sucesso, o aplicativo fecha. Abra novamente com `./scripts/dev.sh run`.
 
-Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **10**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
+O esquema atual é **20**. Backups das versões 1 a 20 passam por validação e migração em uma cópia temporária; a estrutura resultante deve corresponder ao banco atual. O arquivo original é preservado. Versões futuras e estruturas incompatíveis são rejeitadas. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
 
-Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Agendamento automático, compactação, backup em nuvem e migração automática de backups antigos seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
+Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Compactação e backup em nuvem seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
 
 A cópia consistente utiliza [VACUUM INTO, documentado pelo SQLite](https://www.sqlite.org/lang_vacuum.html#vacuum_with_an_into_clause). A restauração verifica as relações com [foreign_key_check](https://www.sqlite.org/pragma.html#pragma_foreign_key_check).
 
+
+### Agendamento local
+
+Em **Agendar backups**, o administrador pode ativar cópias automáticas, escolher uma pasta absoluta, intervalo de 1 a 10.080 minutos e retenção de 1 a 100 arquivos. O recurso vem desativado. Verifica o vencimento ao iniciar e a cada minuto enquanto o aplicativo está aberto; fechar o caixa também solicita uma cópia. Funciona sem login, após configuração autorizada, usando conexão SQLite própria em segundo plano. Ao sair, aguarda uma cópia já iniciada terminar.
+
+Somente uma cópia íntegra recebe extensão `.mhb`. O nome automático identifica instalação, esquema e horário UTC; a lista apresenta a data local do arquivo. A retenção só remove cópias automáticas desta instalação depois de concluir uma nova cópia válida: backups manuais, cópias anteriores à restauração e arquivos de outras instalações são preservados. Falhas aparecem na tela de backup. Falhas de criação não avançam o horário de sucesso, permitindo nova tentativa.
+
+A política fica em `<caminho-do-banco>.backup.ini`, fora do SQLite e do Git, e não é substituída ao restaurar dados. Trocar o caminho do banco muda a identificação da instalação usada na retenção. A restauração encerra o agendamento e a sessão; reabra o aplicativo após concluir.
 
 ## Cliente na venda
 
@@ -173,7 +181,7 @@ Abra **Configurações → Empresa e módulos** para salvar o nome da empresa, p
 
 O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos é separada das permissões dos usuários. Autenticação local já está disponível; licenciamento permanece pendente.
 
-A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 10; backups das versões 4 a 7 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
+A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Backups antigos são migrados em cópia temporária antes da restauração, conforme a seção de backup.
 
 
 O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Veja a versão atual do esquema e a compatibilidade na seção de backup.
@@ -201,7 +209,7 @@ As permissões são verificadas no C++. Após cinco tentativas inválidas, a con
 
 **Auditoria**, no menu lateral do administrador, lista as alterações administrativas no momento em que ocorreram: usuários criados/alterados, senhas trocadas, códigos de recuperação emitidos, configurações de empresa/módulos e alterações de cadastros. Cada registro mostra o responsável, o alvo, os detalhes e o horário local; senhas e códigos nunca são gravados. A listagem é paginada e a consulta é restrita a administradores.
 
-A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos; a **9**, campos complementares. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 10 não têm restauração direta.
+A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos; a **9**, campos complementares. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups antigos seguem a migração controlada descrita na seção de backup.
 
 Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iterações via OpenSSL. O código de recuperação tem 256 bits aleatórios e somente seu hash é persistido. Detalhes e limites: [autenticação local](docs/autenticacao.md).
 
@@ -214,7 +222,7 @@ Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iteraç�
 
 Todos esses campos são opcionais. O estoque máximo é informativo, sem bloquear entradas ou gerar alertas; a unidade também é informativa e não habilita venda fracionada. Documento e telefone são textos informativos, sem validação fiscal ou integração externa.
 
-A migração **9** preserva os registros existentes e inicia os campos novos vazios, com máximo zero. O backup inclui esses dados. Restauração direta exige esquema idêntico na versão 10; backups até a versão 9 são rejeitados sem alterar o banco atual. Para arquivos antigos, permanece o procedimento de recuperação na versão anterior em ambiente separado e posterior atualização do banco.
+A migração **9** preserva os registros existentes e inicia os campos novos vazios, com máximo zero. O backup inclui esses dados. A restauração valida e migra uma cópia temporária de backups antigos para o esquema atual.
 
 
 ## Auditoria dos cadastros
@@ -234,4 +242,4 @@ O PDV mostra subtotal, ajustes e total final. O pagamento, o troco, o caixa e os
 
 A permissão `pos.adjust` está disponível somente ao administrador na matriz atual e é revalidada na finalização. O ajuste concluído gera auditoria junto da venda, pagamento e baixa de estoque; qualquer falha desfaz a transação. Resumo e detalhes da venda exibem os ajustes e a justificativa. PIX/cartões continuam registros manuais.
 
-A migração **10** acrescenta subtotal, desconto, acréscimo e justificativa. Vendas antigas recebem subtotal igual ao total existente e ajustes zero, sem inventar histórico. Backups atuais incluem esses campos; restauração direta exige esquema idêntico na versão 10. Ajustes percentuais, ajustes por item e rateio para devoluções não estão implementados.
+A migração **10** acrescenta subtotal, desconto, acréscimo e justificativa. Vendas antigas recebem subtotal igual ao total existente e ajustes zero, sem inventar histórico. Backups atuais incluem esses campos; a restauração segue a compatibilidade descrita na seção de backup. Ajustes percentuais, ajustes por item e rateio para devoluções não estão implementados.
