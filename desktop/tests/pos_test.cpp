@@ -700,6 +700,17 @@ private slots:
         QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toDouble(),0.0);
         QCOMPARE(scalar("SELECT COUNT(*) FROM inventory_movements").toInt(),0);
     }
+    void variantPickerData() {
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE products SET variant_group='CAM-01', size='M', color='Azul' WHERE id=1"));
+        QVERIFY(q.exec("UPDATE products SET variant_group='CAM-01', size='G', color='Azul' WHERE id=2"));
+        MHStore::Pos pos;
+        const auto variants = pos.variantsForGroup("CAM-01");
+        QCOMPARE(variants.size(), 2);
+        QCOMPARE(variants.first().toMap().value("variant_group").isValid(), false);
+        QCOMPARE(variants.first().toMap().value("size").toString(), QString("G"));
+        QVERIFY(pos.variantsForGroup("").isEmpty());
+    }
     void exportSalesCsv() {
         QSqlQuery q;
         QVERIFY(q.exec("INSERT INTO sales(total_cents,operator_name,created_at) VALUES(1000,'Ana; Caixa','2026-09-10 10:00:00'),(2000,'Bia','2026-09-20 10:00:00')"));

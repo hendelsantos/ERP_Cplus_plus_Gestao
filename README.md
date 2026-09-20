@@ -118,7 +118,7 @@ No PDV, produtos com unidade como KG podem ser vendidos com quantidades de até 
 
 Após finalizar uma venda, o comprovante não fiscal pode ser exportado para PDF pelo diálogo de venda concluída.
 
-Produtos podem registrar tamanho, cor e grupo de variação opcionais, exibidos no cadastro e no carrinho do PDV. Cada registro de variante mantém seu próprio estoque; a seleção agrupada de variantes no carrinho ainda está pendente.
+Produtos podem registrar tamanho, cor e grupo de variação opcionais. Ao selecionar um produto agrupado no PDV, o sistema apresenta as variantes disponíveis e seus saldos antes de adicionar a escolhida ao carrinho.
 
 O cadastro também permite marcar um item como **Serviço**. Serviços podem ser vendidos no PDV sem alterar estoque ou criar movimentos de inventário. A seção Financeiro permite abrir ordens de serviço vinculadas a cliente e serviço, acompanhar descrição, observações e status; consumo de materiais ainda está pendente.
 Materiais podem ser associados à OS por identificador e quantidade; ao concluir a ordem, o estoque é validado e baixado em uma única transação.

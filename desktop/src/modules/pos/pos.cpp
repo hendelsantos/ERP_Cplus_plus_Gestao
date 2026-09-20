@@ -126,6 +126,17 @@ void Pos::refreshCustomers()
     emit customersChanged();
 }
 
+QVariantList Pos::variantsForGroup(const QString &group) const
+{
+    QVariantList result;
+    if (!Auth::allowed("read") || group.trimmed().isEmpty()) return result;
+    QSqlQuery query;
+    query.prepare("SELECT id, code, name, size, color, stock_quantity, sale_price_cents FROM products WHERE active=1 AND variant_group=? ORDER BY size, color, code");
+    query.addBindValue(group.trimmed());
+    if (!query.exec()) return result;
+    return records(query);
+}
+
 void Pos::refreshDashboard()
 {
     if (!Auth::allowed("read")) { m_dashboard.clear(); m_dashboardError="Entre para consultar o painel."; emit dashboardChanged(); emit changed(); return; }

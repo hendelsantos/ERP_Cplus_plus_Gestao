@@ -174,7 +174,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 - [x] Roupas: tamanho e cor informativos no produto e no PDV.
 - [x] Roupas: grupo de variação com estoque independente por registro.
-- [ ] Roupas: seleção agrupada de variações no carrinho.
+- [x] Roupas: seleção agrupada de variações no carrinho.
 - [x] Mercados: unidades, quantidades fracionadas e regras de arredondamento no PDV.
 - [x] Serviços: cadastro e venda sem consumo de estoque.
 - [x] Serviços: ordens de serviço com cliente, descrição, observações e status.

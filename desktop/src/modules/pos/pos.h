@@ -62,6 +62,7 @@ public:
     Q_INVOKABLE bool setAdjustments(const QString &discount,const QString &surcharge,const QString &reason);
     Q_INVOKABLE void refresh(const QString &search = {});
     Q_INVOKABLE bool add(int productId);
+    Q_INVOKABLE QVariantList variantsForGroup(const QString &group) const;
     Q_INVOKABLE bool setQuantity(int productId, int quantity);
     Q_INVOKABLE bool setQuantityValue(int productId, const QString &quantity);
     Q_INVOKABLE void clearCart();

@@ -125,7 +125,13 @@ ColumnLayout {
                 width: ListView.view.width
                 height: 70
                 text: modelData.code + " — " + modelData.name + (modelData.size || modelData.color ? " (" + [modelData.size,modelData.color].filter(Boolean).join(" / ") + ")" : "") + "\n" + page.money(modelData.sale_price_cents) + " • Estoque: " + modelData.stock_quantity
-                onClicked: page.pos.add(modelData.id)
+                onClicked: {
+                    if (modelData.variant_group) {
+                        variantPicker.group = modelData.variant_group
+                        variantPicker.options = page.pos.variantsForGroup(modelData.variant_group)
+                        variantPicker.open()
+                    } else page.pos.add(modelData.id)
+                }
             }
             Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Nenhum produto encontrado." }
         }
@@ -181,6 +187,35 @@ ColumnLayout {
             visible: page.pos.discount > 0 || page.pos.surcharge > 0
             text: "Subtotal: " + page.money(page.pos.subtotal) + " • Desconto: " + page.money(page.pos.discount) + " • Acréscimo: " + page.money(page.pos.surcharge)
             Layout.fillWidth: true; wrapMode: Text.Wrap
+        }
+    }
+    Dialog {
+        id: variantPicker
+        property string group: ""
+        property var options: []
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(520, parent.width - 32)
+        modal: true
+        title: "Escolher variação — " + group
+        contentItem: ColumnLayout {
+            Label { text: "Selecione tamanho, cor e saldo disponível."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            ListView {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(260, contentHeight)
+                model: variantPicker.options
+                delegate: ItemDelegate {
+                    required property var modelData
+                    width: ListView.view.width
+                    text: (modelData.size || "Sem tamanho") + " / " + (modelData.color || "Sem cor") + " • Saldo: " + modelData.stock_quantity
+                    enabled: Number(modelData.stock_quantity) > 0
+                    onClicked: { page.pos.add(modelData.id); variantPicker.close() }
+                }
+            }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            onRejected: variantPicker.close()
         }
     }
     Dialog {
