@@ -201,3 +201,16 @@ Validação: compilação concluída e **5/5 conjuntos de testes aprovados**, in
 ## Versionamento
 
 Repositório Git iniciado na branch `main`, com código, testes, scripts e documentação. Arquivos de compilação, bancos, backups e configurações secretas são ignorados. Remoto: `https://github.com/hendelsantos/ERP_Cplus_plus_Gestao.git`.
+
+
+## Continuação — autenticação offline
+
+- Migração 6: usuários locais e vínculos autenticados em vendas, estoque, abertura/fechamento e movimentações de caixa; registros legados preservados com ID nulo.
+- Primeiro administrador, login, logout com proteção de carrinho, gestão de contas (administrador/operador), redefinição e inativação. Autorizações no C++.
+- PBKDF2-HMAC-SHA256 via OpenSSL, salt individual, 600.000 iterações; bloqueio persistido por cinco minutos após cinco falhas.
+- Recuperação inicial por código aleatório de uso único, com rotação e hash persistido; sem senha mestra.
+- Backup com usuários, restauração restrita ao esquema 6, sessão invalidada após restauração.
+- OpenSSL Crypto é nova dependência. Windows e distribuição da biblioteca permanecem pendentes.
+- Limites: dois perfis fixos, sem troca da própria senha na sessão, sem auditoria geral nem criptografia do arquivo SQLite. Consulte `docs/autenticacao.md`.
+
+Validação: compilação concluída; **5/5 conjuntos de testes aprovados**. Após ampliar o fluxo de primeiro acesso, o teste de interface passou novamente, sem avisos QML. Telas de login e usuários conferidas em 960 × 640. Bancos temporários, sem alterações no banco real.

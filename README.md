@@ -8,6 +8,8 @@ ERP desktop offline-first da MHSoftware, construído com C++20, Qt 6, QML e SQLi
 
 Cadastros básicos de **produtos, categorias e clientes**, com busca, edição e inativação/reativação. **Estoque** com entradas, saídas, ajustes por contagem, filtro de saldo crítico e histórico. Os dados são persistidos localmente. **Caixa e PDV básicos** com abertura, suprimento/sangria, carrinho, pagamento, baixa de estoque e fechamento. Dashboard com indicadores reais de vendas, estoque e caixa; os demais módulos seguem pendentes.
 
+Siga a [estrutura e roteiro do projeto](ESTRUTURA_DO_PROJETO.md) para orientar as próximas entregas.
+
 Veja a [comparação com o plano e próximas etapas](docs/progresso.md). Para retomar o desenvolvimento, leia [CONTINUAR_AQUI.md](CONTINUAR_AQUI.md).
 
 ## Compilar, testar e abrir nesta máquina
@@ -24,7 +26,7 @@ O executável fica em `build/bin/MHStore`. O diretório `build/MHStore` contém 
 
 ## Outros ambientes
 
-Pré-requisitos: CMake 3.21+, compilador C++20 e Qt 6.4+ com Quick, Quick Controls, SQL, driver SQLite e Test. A instalação do Qt deve ser encontrada por `Qt6_DIR` ou `CMAKE_PREFIX_PATH`.
+Pré-requisitos: CMake 3.21+, compilador C++20 e Qt 6.4+ com Quick, Quick Controls, SQL, driver SQLite e Test, além de OpenSSL Crypto (desenvolvimento). A instalação do Qt deve ser encontrada por `Qt6_DIR` ou `CMAKE_PREFIX_PATH`.
 
 ```bash
 cmake -S desktop -B build
@@ -36,7 +38,7 @@ ctest --test-dir build --output-on-failure
 No Ubuntu 24.04, os pacotes de desenvolvimento e execução incluem:
 
 ```bash
-sudo apt install qt6-base-dev qt6-declarative-dev libqt6sql6-sqlite \
+sudo apt install libssl-dev qt6-base-dev qt6-declarative-dev libqt6sql6-sqlite \
   qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript \
   qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
   qml6-module-qtquick-templates qml6-module-qtquick-window
@@ -59,18 +61,18 @@ Valores aceitam vírgula ou ponto decimal, sem separador de milhar.
 
 1. Cadastre um produto e abra **Estoque**.
 2. Clique em **Movimentar** e escolha **Entrada**, **Saída** ou **Ajuste por contagem**.
-3. Informe quantidade, motivo e responsável. No ajuste, informe o **saldo final contado**; zero é permitido.
+3. Informe quantidade e motivo; o responsável é preenchido pela sessão. No ajuste, informe o **saldo final contado**; zero é permitido.
 4. Clique em **Registrar**. O saldo e o histórico são gravados juntos.
 
 Quantidades aceitam até três casas decimais. Saídas não podem tornar o saldo negativo. Produtos inativos mantêm seu histórico, mas precisam ser reativados para receber movimentações. O filtro **Estoque crítico** mostra produtos ativos com saldo menor ou igual ao mínimo. O histórico apresenta as últimas 200 movimentações, de todos os produtos ou do produto selecionado, com horário local.
 
-O responsável é informado manualmente; ainda não existe autenticação ou controle de permissões. Inventário em lote, custo médio e auditoria vinculada ao usuário autenticado seguem pendentes.
+O responsável vem da sessão autenticada e seu identificador é gravado na movimentação. Movimentação manual exige administrador. Inventário em lote, custo médio e auditoria geral de alterações seguem pendentes.
 
 
 ## Realizar uma venda
 
 1. Cadastre um produto com preço de venda maior que zero e registre uma entrada de estoque.
-2. Abra **Caixa**, informe responsável e dinheiro inicial, e clique em **Abrir caixa**.
+2. Abra **Caixa**, informe o dinheiro inicial, e clique em **Abrir caixa**.
 3. Abra **PDV**, pesquise e clique nos produtos para adicioná-los ao carrinho. Use `+`, `−` ou **Remover** para alterar os itens.
 4. Escolha a forma de pagamento. Para dinheiro, informe o valor recebido; o sistema calcula o troco.
 5. Clique em **Finalizar venda**. A venda, os itens, o pagamento, o saldo e o histórico de estoque são gravados juntos. Um resumo aparece na tela.
@@ -85,13 +87,13 @@ Ainda faltam descontos/acréscimos, venda fracionada, pagamentos divididos, canc
 
 ## Suprimento e sangria
 
-Com uma sessão aberta, vá a **Caixa** e escolha **Suprimento** para adicionar dinheiro à gaveta ou **Sangria** para retirar. Informe valor, motivo e responsável e clique em **Registrar movimentação**.
+Com uma sessão aberta, vá a **Caixa** e escolha **Suprimento** para adicionar dinheiro à gaveta ou **Sangria** para retirar. Informe valor e motivo e clique em **Registrar movimentação**.
 
 O saldo esperado passa a ser: **abertura + vendas em dinheiro + suprimentos − sangrias**. Valores são calculados em centavos inteiros. Sangrias acima do saldo disponível e movimentações de sessões fechadas são rejeitadas.
 
 Cada sessão mostra os totais de suprimentos e sangrias. Clique em **Movimentações** para consultar os últimos 200 registros manuais daquela sessão, inclusive após o fechamento, com data/hora local, motivo, responsável e saldos anterior/final. Esse histórico é específico de entradas/retiradas manuais; vendas continuam registradas separadamente.
 
-A identificação do responsável ainda é manual. Não há edição/exclusão de movimentações pela interface; uma correção em caixa aberto deve ser registrada como nova movimentação, com motivo claro.
+O responsável é identificado pela sessão autenticada. Não há edição/exclusão de movimentações pela interface; uma correção em caixa aberto deve ser registrada como nova movimentação, com motivo claro.
 
 
 ## Consultar vendas anteriores
@@ -124,7 +126,7 @@ Para restaurar:
 4. O sistema verifica integridade, vínculos e compatibilidade, cria uma cópia `antes_restauracao_*.mhb` na subpasta `backups` do diretório de dados e restaura em transação.
 5. Após o sucesso, o aplicativo fecha. Abra novamente com `./scripts/dev.sh run`.
 
-Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **5**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
+Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **6**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
 
 Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Agendamento automático, compactação, backup em nuvem e migração automática de backups antigos seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
 
@@ -153,9 +155,32 @@ Use **Ver venda** para abrir os detalhes, **Voltar para clientes** para retornar
 
 Abra **Configurações → Empresa e módulos** para salvar o nome da empresa, perfil do negócio e habilitar Estoque, Caixa e PDV. O nome aparece no título da janela. Os perfis disponíveis são comércio em geral, roupas e acessórios, mercado e mercearia e serviços. Nesta etapa, o perfil identifica o negócio; ele não implementa grade, venda por peso ou ordens de serviço.
 
-O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos não substitui autenticação, permissões ou licenciamento, ainda pendentes.
+O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos é separada das permissões dos usuários. Autenticação local já está disponível; licenciamento permanece pendente.
 
-A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 5; backups versão 4 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
+A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 6; backups versões 4 e 5 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
 
 
-O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Esta evolução mantém o esquema 5 e a compatibilidade atual de backups.
+O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Veja a versão atual do esquema e a compatibilidade na seção de backup.
+
+
+## Usuários e login offline
+
+No primeiro acesso, crie o administrador com nome, login (3–40 letras/números/ponto/traço/underscore) e senha de 12–128 caracteres. O sistema mostra um código de recuperação: guarde-o fora do computador, confirme que o guardou e faça login. Nenhuma chamada de rede é necessária para criar ou validar usuários.
+
+Em **Usuários**, o administrador cria e edita contas, escolhe o perfil, redefine senhas e inativa/reativa acessos. Login é único e não diferencia maiúsculas. Na edição, senha vazia mantém a atual. Não há exclusão de usuários. Seu próprio cadastro é alterado por outro administrador nesta versão.
+
+| Operação | Administrador | Operador de caixa |
+| --- | --- | --- |
+| Consultar cadastros, estoque, vendas e dashboard | Sim | Sim |
+| Operar PDV e caixa habilitados | Sim | Sim |
+| Alterar cadastros e movimentar estoque manualmente | Sim | Não |
+| Configurar empresa/módulos, backup e restauração | Sim | Não |
+| Gerenciar usuários | Sim | Não |
+
+As permissões são verificadas no C++. Após cinco tentativas inválidas, a conta fica bloqueada por cinco minutos; esse estado persiste no SQLite. Para sair, finalize ou limpe o carrinho. O caixa pode permanecer aberto para troca de operador. Vendas, movimentos de estoque, movimentos de caixa e abertura/fechamento gravam o ID do usuário e seu nome da ocasião. Registros anteriores mantêm seus nomes históricos e não recebem um usuário inventado.
+
+**Esqueci minha senha** usa o login do administrador inicial, seu código e uma nova senha. O código é de uso único: a recuperação emite outro código e invalida o anterior. Alterar uma conta pela administração invalida suas sessões e seu código de recuperação; funcionários têm suas senhas redefinidas por um administrador. Não existe senha mestra nem recuperação por e-mail nesta versão.
+
+A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão. Backups incluem usuários e credenciais protegidas; após restaurar, valem as contas, senhas e códigos presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 6 não têm restauração direta.
+
+Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iterações via OpenSSL. O código de recuperação tem 256 bits aleatórios e somente seu hash é persistido. Detalhes e limites: [autenticação local](docs/autenticacao.md).

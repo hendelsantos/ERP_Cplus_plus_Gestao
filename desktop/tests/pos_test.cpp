@@ -1,3 +1,4 @@
+#include "auth_fixture.h"
 #include "core/settings/settings.h"
 #include "core/database/database.h"
 #include "modules/pos/pos.h"
@@ -16,10 +17,82 @@ private slots:
         path=directory.filePath(QUuid::createUuid().toString()+".sqlite");
         MHStore::Database::DatabaseManager db;
         QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QSqlQuery q;
         QVERIFY(q.exec("INSERT INTO products(code,name,sale_price,sale_price_cents,stock_quantity) VALUES('P1','Produto',19.90,1990,10),('P2','Outro',0.10,10,5)"));
     }
     void cleanup() { QSqlDatabase::database().close(); QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection); }
+    void authenticationAndPermissions() {
+        MHStore::Auth auth;
+        QVERIFY(!auth.needsSetup());
+        QVERIFY(!auth.setup("Outro","outro","SenhaTeste123!"));
+        QVERIFY(auth.saveUser(0,"Funcionário","caixa","SenhaCaixa123!","operator",true));
+        QVERIFY(!auth.saveUser(0,"Duplicado","CAIXA","SenhaCaixa123!","admin",true));
+        QVERIFY(!auth.saveUser(1,"Ana","admin","","operator",false));
+        QVERIFY(auth.logout());
+        MHStore::Pos pos;
+        QVERIFY(!pos.openCash("0","Falso"));
+        pos.searchSales(); QVERIFY(pos.sales().isEmpty());
+        QVERIFY(!auth.login("admin","errada"));
+        QVERIFY(auth.login("CAIXA","SenhaCaixa123!"));
+        QVERIFY(!MHStore::Auth::allowed("catalog"));
+        QVERIFY(!MHStore::Auth::allowed("inventory"));
+        QVERIFY(!MHStore::Auth::allowed("backup"));
+        QVERIFY(!MHStore::Auth::allowed("users"));
+        QVERIFY(!auth.saveUser(0,"Outro","outro","SenhaTeste123!","admin",true));
+        MHStore::Settings settings;
+        QVERIFY(!settings.save("Inválido","general",true,true,true));
+        QVERIFY(pos.openCash("0","Nome falsificado"));
+        const int session=pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        auth.hasPendingCart=[&pos] { return !pos.cart().isEmpty(); };
+        QVERIFY(!auth.logout());
+        QVERIFY(pos.checkout(session,"pix","","Falso"));
+        QCOMPARE(scalar("SELECT operator_name FROM sales").toString(),QString("Funcionário"));
+        QCOMPARE(scalar("SELECT user_id FROM sales").toInt(),2);
+        QCOMPARE(scalar("SELECT user_id FROM inventory_movements").toInt(),2);
+        QVERIFY(pos.closeCash(session,"0","Falso"));
+        QCOMPARE(scalar("SELECT closed_user_id FROM cash_sessions").toInt(),2);
+        QVERIFY(auth.logout());
+        QVERIFY(auth.login("admin","SenhaTeste123!"));
+        QVERIFY(auth.saveUser(2,"Funcionário","caixa","","operator",false));
+        QVERIFY(auth.logout());
+        QVERIFY(!auth.login("caixa","SenhaCaixa123!"));
+        QVERIFY(auth.login("admin","SenhaTeste123!"));
+        QVERIFY(auth.saveUser(2,"Funcionário","caixa","NovaSenha12345!","operator",true));
+        QVERIFY(auth.logout());
+        QVERIFY(!auth.login("caixa","SenhaCaixa123!"));
+        QVERIFY(auth.login("caixa","NovaSenha12345!"));
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE users SET session_version=session_version+1 WHERE id=2"));
+        QVERIFY(!MHStore::Auth::allowed("pos"));
+        QVERIFY(!pos.openCash("0","Falso"));
+    }
+    void bootstrapRecoveryAndLockout() {
+        MHStore::Auth::resetSession();
+        QSqlQuery q; QVERIFY(q.exec("DELETE FROM users"));
+        MHStore::Auth auth;
+        QVERIFY(auth.needsSetup());
+        QVERIFY(!auth.setup("Admin","adm","curta"));
+        QVERIFY(auth.setup("Admin","adm","UmaSenhaForte123!"));
+        const auto code=auth.recoveryCode();
+        QCOMPARE(code.size(),64);
+        QVERIFY(scalar("SELECT password_hash FROM users").toByteArray()!=QByteArray("UmaSenhaForte123!"));
+        QVERIFY(!auth.recover("adm",QString(64,'0'),"OutraSenha12345!"));
+        QVERIFY(auth.recover("adm",code,"OutraSenha12345!"));
+        const auto replacement=auth.recoveryCode();
+        QVERIFY(replacement!=code);
+        QVERIFY(!auth.recover("adm",code,"OutraSenha12345!"));
+        for(int i=0;i<5;++i) QVERIFY(!auth.login("adm","errada"));
+        QVERIFY(!auth.login("adm","OutraSenha12345!"));
+        QCOMPARE(scalar("SELECT failed_attempts FROM users").toInt(),0);
+        QVERIFY(auth.recover("adm",replacement,"SenhaFinal12345!"));
+        QVERIFY(auth.login("adm","SenhaFinal12345!"));
+        QVERIFY(auth.logout());
+        QSqlDatabase::database().close();
+        QVERIFY(QSqlDatabase::database().open());
+        QVERIFY(auth.login("adm","SenhaFinal12345!"));
+    }
     void moduleRegistry() {
         MHStore::Settings settings;
         const QVariantMap disabled={{"inventory",false},{"cash",false},{"pos",false}};
@@ -124,6 +197,7 @@ private slots:
         QVERIFY(!pos.checkout(session,"debit","","Ana"));
         QSqlDatabase::database().close();
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         pos.refresh();
         QCOMPARE(pos.sessions().size(),2);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),2);
@@ -169,7 +243,7 @@ private slots:
         auto last = pos.cashMovements().first().toMap();
         QCOMPARE(last.value("previous_cents").toInt(),17015);
         QCOMPARE(last.value("balance_cents").toInt(),10000);
-        QCOMPARE(last.value("operator_name").toString(),QString("Bia"));
+        QCOMPARE(last.value("operator_name").toString(),QString("Ana"));
         QVERIFY(pos.closeCash(session,"99,50","Ana"));
         QCOMPARE(scalar("SELECT expected_cents FROM cash_sessions").toInt(),10000);
         QCOMPARE(scalar("SELECT counted_cents FROM cash_sessions").toInt(),9950);
@@ -178,6 +252,7 @@ private slots:
         QVERIFY(!pos.moveCash(session,"withdrawal","1","Sessão antiga","Ana"));
         QSqlDatabase::database().close();
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         pos.refresh();
         pos.selectCashHistory(session);
         QCOMPARE(pos.cashMovements().size(),2);
@@ -194,7 +269,6 @@ private slots:
             QVERIFY(!pos.moveCash(session,"supply",amount,"Teste","Ana"));
         QVERIFY(!pos.moveCash(session,"invalid","1","Teste","Ana"));
         QVERIFY(!pos.moveCash(session,"supply","1"," ","Ana"));
-        QVERIFY(!pos.moveCash(session,"supply","1","Teste"," "));
         QVERIFY(pos.moveCash(session,"withdrawal","60","Retirada","Ana"));
         QCOMPARE(stale.cash().value("cash_expected").toInt(),10000);
         QVERIFY(!stale.moveCash(session,"withdrawal","60","Outra retirada","Bia"));
@@ -215,6 +289,7 @@ private slots:
         const int session = pos.cash().value("id").toInt();
         QVERIFY(pos.add(1)); QVERIFY(pos.checkout(session,"cash","20","Ana"));
         QSqlQuery q;
+        QVERIFY(removeAuthMigration());
         QVERIFY(q.exec("DROP TABLE cash_movements"));
         QVERIFY(q.exec("DROP TABLE business_settings"));
         QVERIFY(q.exec("DELETE FROM schema_migrations WHERE version=5"));
@@ -222,11 +297,13 @@ private slots:
         QSqlDatabase::database().close();
         MHStore::Database::DatabaseManager db;
         QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),5);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),6);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }
@@ -241,6 +318,7 @@ private slots:
         QVERIFY(q.exec("UPDATE products SET name='Novo nome', sale_price_cents=5000, active=0 WHERE id=1"));
         QSqlDatabase::database().close();
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         MHStore::Pos reopened;
         reopened.searchSales(QString::number(saleId));
         QCOMPARE(reopened.sales().size(),1);
@@ -392,6 +470,7 @@ private slots:
         QVERIFY(q.exec("UPDATE customers SET name='Nome atualizado',active=0 WHERE id=1"));
         QSqlDatabase::database().close();
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QVERIFY(pos.loadSale(1));
         QCOMPARE(pos.selectedSale().value("customer_name").toString(),QString("Nome atualizado"));
         QCOMPARE(pos.selectedSale().value("customer_id").toInt(),1);
@@ -400,14 +479,13 @@ private slots:
     }
     void validation() {
         MHStore::Pos pos;
-        QVERIFY(!pos.openCash("-1","Ana")); QVERIFY(!pos.openCash("0"," "));
+        QVERIFY(!pos.openCash("-1","Ana"));
         QVERIFY(!pos.add(999)); QVERIFY(pos.add(1));
         QVERIFY(!pos.setQuantity(1,11)); QVERIFY(!pos.setQuantity(1,-1));
         QVERIFY(pos.openCash("0","Ana"));
         const int session=pos.cash().value("id").toInt();
         QVERIFY(!pos.checkout(session,"invalid","0","Ana"));
         QVERIFY(!pos.checkout(session,"cash","nan","Ana"));
-        QVERIFY(!pos.checkout(session,"pix",""," "));
         QSqlQuery q; QVERIFY(q.exec("UPDATE products SET active=0 WHERE id=1"));
         QVERIFY(!pos.checkout(session,"pix","","Ana"));
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);

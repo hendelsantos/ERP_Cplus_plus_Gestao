@@ -19,7 +19,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Label { text: "Responsável" }
-        TextField { id: operatorField; objectName: "posOperator"; placeholderText: "Nome do operador"; Layout.fillWidth: true }
+        TextField { id: operatorField; readOnly: true; text: authStore.user.name || ""; objectName: "posOperator"; placeholderText: "Nome do operador"; Layout.fillWidth: true }
         Label { text: "Identificação manual"; color: "#6d7781" }
     }
     RowLayout {
@@ -205,7 +205,7 @@ ColumnLayout {
                 Label { text: "Motivo *" }
                 TextField { id: movementReason; objectName: "cashMovementReason"; Layout.fillWidth: true; placeholderText: "Descreva a entrada ou retirada" }
                 Label { text: "Responsável *" }
-                TextField { id: movementOperator; objectName: "cashMovementOperator"; Layout.fillWidth: true }
+                TextField { id: movementOperator; readOnly: true; objectName: "cashMovementOperator"; Layout.fillWidth: true }
                 Label { id: movementError; Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#b42318" }
             }
         }

@@ -1,3 +1,4 @@
+#include "auth_fixture.h"
 #include "core/database/database.h"
 #include "modules/catalog/catalog.h"
 
@@ -18,6 +19,7 @@ private slots:
         MHStore::Database::DatabaseManager database;
         QString error;
         QVERIFY2(database.initialize(&error, path), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
         {
             MHStore::Catalog catalog;
             QVERIFY(catalog.save("Categorias", 0, {{"name", "Roupas"}}));
@@ -61,6 +63,7 @@ private slots:
         }
         QSqlDatabase::database().close();
         QVERIFY2(database.initialize(&error, path), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
         {
             MHStore::Catalog catalog;
             catalog.search("Produtos");

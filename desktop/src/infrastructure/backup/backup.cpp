@@ -1,3 +1,4 @@
+#include "../../core/auth/auth.h"
 #include "backup.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -49,6 +50,7 @@ Backup::Backup(QObject *parent) : QObject(parent)
 bool Backup::fail(const QString &message) { m_message=message; emit changed(); return false; }
 void Backup::list(const QString &folder)
 {
+    if (!Auth::allowed("backup")) { m_files.clear(); emit changed(); return; }
     m_folder = folder;
     m_files.clear();
     if (QDir::isAbsolutePath(folder)) {
@@ -76,6 +78,7 @@ bool Backup::snapshot(const QString &folder, const QString &prefix, QString &pat
 }
 bool Backup::create(const QString &folder)
 {
+    if (!Auth::allowed("backup")) return fail("Acesso negado. Entre com um usuário autorizado.");
     QString path;
     if (!snapshot(folder,"mhstore_",path)) return false;
     m_message="Backup criado e verificado: " + path;
@@ -84,6 +87,7 @@ bool Backup::create(const QString &folder)
 }
 bool Backup::restore(const QString &file)
 {
+    if (!Auth::allowed("backup")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (hasPendingCart && hasPendingCart()) return fail("Finalize ou limpe o carrinho antes de restaurar.");
     const auto live = QSqlDatabase::database();
     if (!QFileInfo(file).isFile() || QFileInfo(file).canonicalFilePath() == QFileInfo(live.databaseName()).canonicalFilePath())
@@ -100,8 +104,8 @@ bool Backup::restore(const QString &file)
         if (!validate(source.db,error) || !schema(source.db,sourceSchema,error)) return fail(error);
         if (sourceSchema != currentSchema) return fail("Backup incompatível com a estrutura desta versão do sistema.");
         QSqlQuery version(source.db);
-        if (!version.exec("SELECT MAX(version) FROM schema_migrations") || !version.next() || version.value(0).toInt()!=5)
-            return fail("Versão de backup não suportada. Esta versão restaura bancos na versão 5.");
+        if (!version.exec("SELECT MAX(version) FROM schema_migrations") || !version.next() || version.value(0).toInt()!=6)
+            return fail("Versão de backup não suportada. Esta versão restaura bancos na versão 6.");
         version.finish();
         QSqlQuery copy(source.db);
         copy.prepare("VACUUM main INTO ?"); copy.addBindValue(staged);
@@ -148,6 +152,7 @@ bool Backup::restore(const QString &file)
     q.exec("DETACH DATABASE recovery");
     m_message="Restauração concluída. Abra novamente o aplicativo. Cópia anterior: " + safety;
     list(m_folder);
+    Auth::resetSession();
     emit restored();
     return true;
 }

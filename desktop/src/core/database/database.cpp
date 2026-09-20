@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 5) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 6) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -99,6 +99,14 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("CREATE TABLE business_settings (id INTEGER PRIMARY KEY CHECK(id=1), company TEXT NOT NULL, profile TEXT NOT NULL CHECK(profile IN ('general','fashion','market','services')), inventory INTEGER NOT NULL CHECK(inventory IN (0,1)), cash INTEGER NOT NULL CHECK(cash IN (0,1)), pos INTEGER NOT NULL CHECK(pos IN (0,1)), CHECK(pos=0 OR (inventory=1 AND cash=1)))"),
         QStringLiteral("INSERT INTO business_settings VALUES(1,'Minha empresa','general',1,1,1)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (5)")
+    }, {
+        QStringLiteral("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, login TEXT NOT NULL UNIQUE COLLATE NOCASE, password_hash BLOB NOT NULL, salt BLOB NOT NULL, iterations INTEGER NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','operator')), active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), session_version INTEGER NOT NULL DEFAULT 1, failed_attempts INTEGER NOT NULL DEFAULT 0, locked_until INTEGER NOT NULL DEFAULT 0, recovery_hash BLOB)"),
+        QStringLiteral("ALTER TABLE sales ADD COLUMN user_id INTEGER REFERENCES users(id)"),
+        QStringLiteral("ALTER TABLE inventory_movements ADD COLUMN user_id INTEGER REFERENCES users(id)"),
+        QStringLiteral("ALTER TABLE cash_movements ADD COLUMN user_id INTEGER REFERENCES users(id)"),
+        QStringLiteral("ALTER TABLE cash_sessions ADD COLUMN user_id INTEGER REFERENCES users(id)"),
+        QStringLiteral("ALTER TABLE cash_sessions ADD COLUMN closed_user_id INTEGER REFERENCES users(id)"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (6)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

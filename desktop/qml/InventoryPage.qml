@@ -120,7 +120,7 @@ ColumnLayout {
                 Label { text: "Motivo *" }
                 TextField { id: reasonField; objectName: "movementReason"; Layout.fillWidth: true; placeholderText: "Ex.: recebimento de mercadoria" }
                 Label { text: "Responsável *" }
-                TextField { id: operatorField; objectName: "movementOperator"; Layout.fillWidth: true; placeholderText: "Nome de quem realizou a movimentação" }
+                TextField { id: operatorField; readOnly: true; text: authStore.user.name || ""; objectName: "movementOperator"; Layout.fillWidth: true; placeholderText: "Nome de quem realizou a movimentação" }
                 Label { text: "Identificação manual; login e permissões ainda não disponíveis."; wrapMode: Text.Wrap; Layout.fillWidth: true; color: "#6d7781" }
                 Label { id: errorLabel; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
             }

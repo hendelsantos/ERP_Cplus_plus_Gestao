@@ -1,3 +1,4 @@
+#include "auth_fixture.h"
 #include "core/database/database.h"
 #include "modules/inventory/inventory.h"
 
@@ -26,6 +27,7 @@ private slots:
     {
         path = directory.filePath(QUuid::createUuid().toString() + ".sqlite");
         QVERIFY(initialize());
+        QVERIFY(authenticateTestAdmin());
         QSqlQuery query;
         QVERIFY(query.exec("INSERT INTO products (code, name, minimum_stock) VALUES ('P1','Produto',2)"));
     }
@@ -56,13 +58,14 @@ private slots:
         QCOMPARE(latest.value("quantity").toDouble(), -5.125);
         QCOMPARE(latest.value("previous_balance").toDouble(), 8.125);
         QCOMPARE(latest.value("balance").toDouble(), 3.0);
-        QCOMPARE(latest.value("operator_name").toString(), QString("João"));
+        QCOMPARE(latest.value("operator_name").toString(), QString("Ana"));
         QVERIFY(inventory.move(1,"adjustment","0","Contagem zerada","Ana"));
         QCOMPARE(balance(), 0.0);
         inventory.refresh("P1",true);
         QCOMPARE(inventory.products().size(), 1);
         QSqlDatabase::database().close();
         QVERIFY(initialize());
+        QVERIFY(authenticateTestAdmin());
         inventory.refresh();
         QCOMPARE(inventory.history().size(), 4);
         QCOMPARE(balance(), 0.0);
@@ -78,7 +81,6 @@ private slots:
         QVERIFY(!inventory.move(1,"entry","nan","Entrada","Ana"));
         QVERIFY(!inventory.move(1,"entry","1000000001","Entrada","Ana"));
         QVERIFY(!inventory.move(1,"entry","1"," ","Ana"));
-        QVERIFY(!inventory.move(1,"entry","1","Entrada"," "));
         QVERIFY(!inventory.move(999,"entry","1","Entrada","Ana"));
         QVERIFY(!inventory.move(1,"invalid","1","Entrada","Ana"));
         QVERIFY(!inventory.move(1,"adjustment","2","Sem mudança","Ana"));
@@ -104,6 +106,7 @@ private slots:
     void upgradeFromVersionOne()
     {
         QSqlQuery query;
+        QVERIFY(removeAuthMigration());
         QVERIFY(query.exec("DROP TABLE cash_movements"));
         QVERIFY(query.exec("DROP TABLE business_settings"));
         QVERIFY(query.exec("DELETE FROM schema_migrations WHERE version=5"));
@@ -124,7 +127,9 @@ private slots:
         QVERIFY(query.exec("UPDATE products SET stock_quantity = 7, sale_price = 19.99, cost_price = 10.01 WHERE id = 1"));
         QSqlDatabase::database().close();
         QVERIFY(initialize());
+        QVERIFY(authenticateTestAdmin());
         QVERIFY(initialize());
+        QVERIFY(authenticateTestAdmin());
         QCOMPARE(balance(), 7.0);
         QVERIFY(query.exec("SELECT sale_price_cents, cost_price_cents FROM products WHERE id=1"));
         QVERIFY(query.next());
@@ -133,7 +138,7 @@ private slots:
         query.finish();
         QVERIFY(query.exec("SELECT COUNT(*) FROM schema_migrations"));
         QVERIFY(query.next());
-        QCOMPARE(query.value(0).toInt(), 5);
+        QCOMPARE(query.value(0).toInt(), 6);
         query.finish();
         MHStore::Inventory inventory;
         QVERIFY(inventory.move(1,"exit","2","Após migração","Ana"));

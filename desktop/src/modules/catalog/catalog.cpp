@@ -1,3 +1,4 @@
+#include "../../core/auth/auth.h"
 #include "catalog.h"
 
 #include <QSqlError>
@@ -47,6 +48,7 @@ void Catalog::search(const QString &section, const QString &text, bool includeIn
 
 void Catalog::refresh()
 {
+    if (!Auth::allowed("read")) { m_rows.clear(); m_categories.clear(); emit changed(); return; }
     m_error.clear();
     QSqlQuery categories;
     if (!categories.exec(QStringLiteral("SELECT id, name, active FROM categories ORDER BY name COLLATE NOCASE"))) {
@@ -72,6 +74,7 @@ void Catalog::refresh()
 
 bool Catalog::save(const QString &section, int id, const QVariantMap &values)
 {
+    if (!Auth::allowed("catalog")) return fail("Acesso negado. Entre com um usuário autorizado.");
     const QString table = tableFor(section);
     if (table.isEmpty() || id < 0) return fail(QStringLiteral("Cadastro inválido."));
     QVariantMap data;
@@ -124,6 +127,7 @@ bool Catalog::save(const QString &section, int id, const QVariantMap &values)
 
 bool Catalog::setActive(const QString &section, int id, bool active)
 {
+    if (!Auth::allowed("catalog")) return fail("Acesso negado. Entre com um usuário autorizado.");
     const auto table = tableFor(section);
     if (table.isEmpty() || id <= 0) return fail(QStringLiteral("Registro inválido."));
     QSqlQuery query;

@@ -1,3 +1,4 @@
+#include "auth_fixture.h"
 #include "infrastructure/backup/backup.h"
 #include "core/database/database.h"
 #include <QtTest>
@@ -15,6 +16,7 @@ private slots:
     void init() {
         path=directory.filePath(QUuid::createUuid().toString()+".sqlite");
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QSqlQuery q;
         QVERIFY(q.exec("INSERT INTO categories(name) VALUES('Roupas')"));
         QVERIFY(q.exec("INSERT INTO products(code,name,category_id,stock_quantity) VALUES('P1','Produto',1,10)"));
@@ -32,6 +34,7 @@ private slots:
         QVERIFY(q.exec("INSERT INTO customers(name) VALUES('Posterior')"));
         QSignalSpy restored(&backup,&MHStore::Backup::restored);
         QVERIFY2(backup.restore(saved),qPrintable(backup.message()));
+        QVERIFY(authenticateTestAdmin());
         QCOMPARE(restored.size(),1);
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Minha empresa"));
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
@@ -42,10 +45,12 @@ private slots:
         const auto safety=QDir(QFileInfo(path).absolutePath()+"/backups").entryInfoList({"antes_restauracao_*.mhb"},QDir::Files,QDir::Time);
         QVERIFY(!safety.isEmpty());
         QVERIFY2(backup.restore(safety.first().absoluteFilePath()),qPrintable(backup.message()));
+        QVERIFY(authenticateTestAdmin());
         QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),2);
         QCOMPARE(scalar("SELECT COUNT(*) FROM customers").toInt(),1);
         QSqlDatabase::database().close();
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QCOMPARE(scalar("SELECT name FROM products WHERE id=1").toString(),QString("Alterado"));
     }
     void rejectedRestores() {
@@ -84,6 +89,7 @@ private slots:
         QCOMPARE(scalar("SELECT COUNT(*) FROM customers").toInt(),1);
         QVERIFY(q.exec("DROP TRIGGER fail_restore"));
         QVERIFY2(backup.restore(saved),qPrintable(backup.message()));
+        QVERIFY(authenticateTestAdmin());
         // Tamper with a separate backup without touching the live database.
         {
             auto damaged=QSqlDatabase::addDatabase("QSQLITE","damaged");
@@ -101,19 +107,22 @@ private slots:
     }
     void versionFourBackupAndMigration() {
         QSqlQuery q;
+        QVERIFY(removeAuthMigration());
         QVERIFY(q.exec("DROP TABLE business_settings"));
         QVERIFY(q.exec("DELETE FROM schema_migrations WHERE version=5"));
         MHStore::Backup backup;
         const auto folder=directory.filePath(QUuid::createUuid().toString());
-        QVERIFY(backup.create(folder));
-        const auto saved=backup.files().first().toMap().value("path").toString();
+        const auto saved=directory.filePath("legacy.mhb");
+        q.prepare("VACUUM INTO ?"); q.addBindValue(saved); QVERIFY(q.exec());
         MHStore::Database::DatabaseManager db;
         QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Minha empresa"));
         QVERIFY(!backup.restore(saved));
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
-        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),5);
+        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),6);
     }
     void incompatibleSchema() {
         MHStore::Backup backup;

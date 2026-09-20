@@ -1,3 +1,4 @@
+#include "../../core/auth/auth.h"
 #include "../../core/settings/settings.h"
 #include "inventory.h"
 
@@ -32,6 +33,7 @@ bool Inventory::fail(const QString &message)
 
 void Inventory::refresh(const QString &search, bool criticalOnly)
 {
+    if (!Auth::allowed("read")) { m_products.clear(); m_history.clear(); emit changed(); return; }
     m_search = search;
     m_criticalOnly = criticalOnly;
     m_error.clear();
@@ -50,6 +52,7 @@ void Inventory::refresh(const QString &search, bool criticalOnly)
 
 void Inventory::selectProduct(int productId)
 {
+    if (!Auth::allowed("read")) { m_history.clear(); emit changed(); return; }
     m_productId = productId;
     QSqlQuery query;
     query.prepare(QStringLiteral("SELECT m.*, p.name AS product_name, p.code AS product_code, "
@@ -62,8 +65,10 @@ void Inventory::selectProduct(int productId)
 }
 
 bool Inventory::move(int productId, const QString &type, const QString &quantity,
-                     const QString &reason, const QString &operatorName)
+                     const QString &reason, const QString & /*operatorName*/)
 {
+    const QString operatorName = Auth::operatorName();
+    if (!Auth::allowed("inventory")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("inventory")) return fail("Módulo desabilitado nas configurações da empresa.");
     if (type != "entry" && type != "exit" && type != "adjustment")
         return fail(QStringLiteral("Tipo de movimentação inválido."));
@@ -103,8 +108,8 @@ bool Inventory::move(int productId, const QString &type, const QString &quantity
     query.bindValue(":id", productId);
     if (!query.exec()) return rollback(query.lastError().text());
     query.prepare(QStringLiteral("INSERT INTO inventory_movements "
-        "(product_id, type, quantity, previous_balance, balance, reason, operator_name) "
-        "VALUES (:id, :type, :quantity, :previous, :balance, :reason, :operator)"));
+        "(product_id, type, quantity, previous_balance, balance, reason, operator_name,user_id) "
+        "VALUES (:id, :type, :quantity, :previous, :balance, :reason, :operator,:user)"));
     query.bindValue(":id", productId);
     query.bindValue(":type", type);
     query.bindValue(":quantity", delta);
@@ -112,6 +117,7 @@ bool Inventory::move(int productId, const QString &type, const QString &quantity
     query.bindValue(":balance", balance);
     query.bindValue(":reason", reason.trimmed());
     query.bindValue(":operator", operatorName.trimmed());
+    query.bindValue(":user", Auth::userId());
     if (!query.exec()) return rollback(query.lastError().text());
     if (!database.commit()) return rollback(database.lastError().text());
     refresh(m_search, m_criticalOnly);

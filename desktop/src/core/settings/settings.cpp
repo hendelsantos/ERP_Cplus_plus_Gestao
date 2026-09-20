@@ -1,3 +1,4 @@
+#include "../auth/auth.h"
 #include "settings.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -90,6 +91,7 @@ bool Settings::saveModules(const QString &company, const QString &profile, const
     return save(company,profile,modules.value("inventory").toBool(),modules.value("cash").toBool(),modules.value("pos").toBool());
 }
 bool Settings::save(const QString &company, const QString &profile, bool inventory, bool cash, bool pos) {
+    if (!Auth::allowed("settings")) return fail("Acesso negado. Entre com um usuário autorizado.");
     const auto name=company.trimmed();
     if (name.isEmpty() || name.size()>120) return fail("Informe o nome da empresa com até 120 caracteres.");
     if (!QStringList{"general","fashion","market","services"}.contains(profile)) return fail("Perfil de negócio inválido.");

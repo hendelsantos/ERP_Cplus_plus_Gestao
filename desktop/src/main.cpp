@@ -1,3 +1,4 @@
+#include "core/auth/auth.h"
 #include "core/settings/settings.h"
 #include "core/database/database.h"
 #include "modules/catalog/catalog.h"
@@ -34,15 +35,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    MHStore::Auth auth;
     MHStore::Catalog catalog;
     MHStore::Inventory inventory;
     MHStore::Pos pos;
     MHStore::Backup backup;
     MHStore::Settings settings;
+    auth.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
     settings.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
     backup.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
     QObject::connect(&backup, &MHStore::Backup::restored, &application, &QCoreApplication::quit, Qt::QueuedConnection);
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("authStore", &auth);
     engine.rootContext()->setContextProperty("settingsStore", &settings);
     engine.rootContext()->setContextProperty(QStringLiteral("catalogStore"), &catalog);
     engine.rootContext()->setContextProperty(QStringLiteral("inventoryStore"), &inventory);

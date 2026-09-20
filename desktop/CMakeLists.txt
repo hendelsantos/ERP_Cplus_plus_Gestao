@@ -8,6 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Sql)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 qt_standard_project_setup(REQUIRES 6.4)
 
@@ -38,6 +39,8 @@ qt_add_qml_module(MHStore
         qml/SalesPage.qml
         qml/BackupPage.qml
         qml/SettingsPage.qml
+        qml/AuthPage.qml
+        qml/UsersPage.qml
 )
 
 target_link_libraries(MHStore PRIVATE
@@ -116,6 +119,7 @@ endif()
 
 foreach(app_target MHStore catalog_tests inventory_tests pos_tests backup_tests ui_tests)
     if(TARGET ${app_target})
-        target_sources(${app_target} PRIVATE src/core/settings/settings.cpp src/core/settings/settings.h)
+        target_sources(${app_target} PRIVATE src/core/settings/settings.cpp src/core/settings/settings.h src/core/auth/auth.cpp src/core/auth/auth.h)
+        target_link_libraries(${app_target} PRIVATE OpenSSL::Crypto)
     endif()
 endforeach()

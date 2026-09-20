@@ -1,3 +1,4 @@
+#include "../../core/auth/auth.h"
 #include "../../core/settings/settings.h"
 #include "pos.h"
 #include <QSqlDatabase>
@@ -61,6 +62,7 @@ qint64 Pos::total() const
 }
 void Pos::refresh(const QString &search)
 {
+    if (!Auth::allowed("read")) { m_products.clear(); m_sessions.clear(); m_cash.clear(); m_cashMovements.clear(); emit changed(); return; }
     m_error.clear();
     m_search = search;
     QString term = search.trimmed();
@@ -86,6 +88,7 @@ void Pos::refresh(const QString &search)
 }
 void Pos::refreshCustomers()
 {
+    if (!Auth::allowed("read")) { m_customers.clear(); emit customersChanged(); emit changed(); return; }
     m_customers = {QVariantMap{{"id",0},{"label",QStringLiteral("Consumidor não identificado")}}};
     QSqlQuery q;
     if (!q.exec("SELECT id, name FROM customers WHERE active=1 ORDER BY name COLLATE NOCASE")) {
@@ -98,6 +101,7 @@ void Pos::refreshCustomers()
 
 void Pos::refreshDashboard()
 {
+    if (!Auth::allowed("read")) { m_dashboard.clear(); m_dashboardError="Entre para consultar o painel."; emit dashboardChanged(); emit changed(); return; }
     m_dashboard.clear();
     m_dashboardError.clear();
     QSqlQuery q;
@@ -123,6 +127,7 @@ void Pos::refreshDashboard()
 
 void Pos::searchSales(const QString &number, int page, int customerId)
 {
+    if (!Auth::allowed("read")) { m_sales.clear(); m_customerSummary.clear(); m_moreSales=false; m_salesError="Entre para consultar vendas."; emit salesChanged(); emit changed(); return; }
     m_sales.clear();
     m_customerSummary.clear();
     m_moreSales = false;
@@ -172,6 +177,7 @@ void Pos::searchSales(const QString &number, int page, int customerId)
 
 bool Pos::loadSale(int saleId)
 {
+    if (!Auth::allowed("read")) { m_selectedSale.clear(); m_saleItems.clear(); m_salesError="Acesso negado."; emit salesChanged(); return false; }
     m_selectedSale.clear();
     m_saleItems.clear();
     m_salesError.clear();
@@ -202,6 +208,7 @@ bool Pos::loadSale(int saleId)
 
 bool Pos::add(int productId)
 {
+    if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
     for (const auto &entry : m_cart) {
         const auto row = entry.toMap();
@@ -222,6 +229,7 @@ bool Pos::add(int productId)
 }
 bool Pos::setQuantity(int productId, int quantity)
 {
+    if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
     if (quantity < 0 || quantity > 10000) return fail("Quantidade deve estar entre 0 e 10.000 unidades.");
     for (qsizetype i = 0; i < m_cart.size(); ++i) {
@@ -241,8 +249,10 @@ bool Pos::setQuantity(int productId, int quantity)
     return fail("Item não encontrado no carrinho.");
 }
 void Pos::clearCart() { m_cart.clear(); m_error.clear(); emit changed(); }
-bool Pos::openCash(const QString &amount, const QString &operatorName)
+bool Pos::openCash(const QString &amount, const QString & /*operatorName*/)
 {
+    const QString operatorName = Auth::operatorName();
+    if (!Auth::allowed("cash")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("cash")) return fail("Módulo desabilitado nas configurações da empresa.");
     qint64 cents;
     if (!money(amount,cents) || operatorName.trimmed().isEmpty()) return fail("Informe o responsável e um valor de abertura válido, com até duas casas decimais.");
@@ -251,14 +261,16 @@ bool Pos::openCash(const QString &amount, const QString &operatorName)
     QSqlQuery q;
     if (!q.exec("SELECT id FROM cash_sessions WHERE status = 'open'")) return fail(q.lastError().text());
     if (q.next()) return fail("Já existe um caixa aberto.");
-    q.prepare("INSERT INTO cash_sessions(opening_balance, opening_cents, operator_name) VALUES(?,?,?)");
-    q.addBindValue(cents / 100.0); q.addBindValue(cents); q.addBindValue(operatorName.trimmed());
+    q.prepare("INSERT INTO cash_sessions(opening_balance, opening_cents, operator_name,user_id) VALUES(?,?,?,?)");
+    q.addBindValue(cents / 100.0); q.addBindValue(cents); q.addBindValue(operatorName.trimmed()); q.addBindValue(Auth::userId());
     if (!q.exec()) return fail(q.lastError().text());
     if (!tx.commit()) return fail(tx.db.lastError().text());
     refresh(m_search); return true;
 }
-bool Pos::closeCash(int sessionId, const QString &counted, const QString &operatorName)
+bool Pos::closeCash(int sessionId, const QString &counted, const QString & /*operatorName*/)
 {
+    const QString operatorName = Auth::operatorName();
+    if (!Auth::allowed("cash")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("cash")) return fail("Módulo desabilitado nas configurações da empresa.");
     qint64 cents;
     if (!money(counted,cents) || operatorName.trimmed().isEmpty()) return fail("Informe o responsável e o dinheiro contado, com até duas casas decimais.");
@@ -270,14 +282,15 @@ bool Pos::closeCash(int sessionId, const QString &counted, const QString &operat
     if (!q.exec()) return fail(q.lastError().text());
     if (!q.next()) return fail("Este caixa já foi fechado ou não existe.");
     const auto expected = q.value(0).toLongLong(); q.finish();
-    q.prepare("UPDATE cash_sessions SET status='closed', closed_at=CURRENT_TIMESTAMP, expected_cents=?, counted_cents=?, closing_balance=?, closed_by=? WHERE id=?");
-    q.addBindValue(expected); q.addBindValue(cents); q.addBindValue(cents/100.0); q.addBindValue(operatorName.trimmed()); q.addBindValue(sessionId);
+    q.prepare("UPDATE cash_sessions SET status='closed', closed_at=CURRENT_TIMESTAMP, expected_cents=?, counted_cents=?, closing_balance=?, closed_by=?,closed_user_id=? WHERE id=?");
+    q.addBindValue(expected); q.addBindValue(cents); q.addBindValue(cents/100.0); q.addBindValue(operatorName.trimmed()); q.addBindValue(Auth::userId()); q.addBindValue(sessionId);
     if (!q.exec()) return fail(q.lastError().text());
     if (!tx.commit()) return fail(tx.db.lastError().text());
     refresh(m_search); return true;
 }
 void Pos::selectCashHistory(int sessionId)
 {
+    if (!Auth::allowed("read")) { m_cashMovements.clear(); emit changed(); return; }
     m_historySession = sessionId;
     QSqlQuery q;
     q.prepare("SELECT *, datetime(created_at, 'localtime') AS local_created_at FROM cash_movements "
@@ -289,8 +302,10 @@ void Pos::selectCashHistory(int sessionId)
 }
 
 bool Pos::moveCash(int sessionId, const QString &type, const QString &amount,
-                   const QString &reason, const QString &operatorName)
+                   const QString &reason, const QString & /*operatorName*/)
 {
+    const QString operatorName = Auth::operatorName();
+    if (!Auth::allowed("cash")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("cash")) return fail("Módulo desabilitado nas configurações da empresa.");
     if (type != "supply" && type != "withdrawal") return fail("Tipo de movimentação de caixa inválido.");
     qint64 cents;
@@ -310,9 +325,9 @@ bool Pos::moveCash(int sessionId, const QString &type, const QString &amount,
     if (type == "withdrawal" && cents > previous) return fail("Dinheiro insuficiente no caixa para esta sangria.");
     const qint64 balance = previous + (type == "supply" ? cents : -cents);
     if (balance > limit) return fail("Saldo do caixa acima do limite permitido.");
-    q.prepare("INSERT INTO cash_movements(cash_session_id,type,amount_cents,previous_cents,balance_cents,reason,operator_name) "
-              "VALUES(?,?,?,?,?,?,?)");
-    for (const auto &value : QVariantList{sessionId,type,cents,previous,balance,reason.trimmed(),operatorName.trimmed()})
+    q.prepare("INSERT INTO cash_movements(cash_session_id,type,amount_cents,previous_cents,balance_cents,reason,operator_name,user_id) "
+              "VALUES(?,?,?,?,?,?,?,?)");
+    for (const auto &value : QVariantList{sessionId,type,cents,previous,balance,reason.trimmed(),operatorName.trimmed(),Auth::userId()})
         q.addBindValue(value);
     if (!q.exec()) return fail(q.lastError().text());
     if (!tx.commit()) return fail(tx.db.lastError().text());
@@ -320,8 +335,10 @@ bool Pos::moveCash(int sessionId, const QString &type, const QString &amount,
     return true;
 }
 
-bool Pos::checkout(int sessionId, const QString &method, const QString &tendered, const QString &operatorName, int customerId)
+bool Pos::checkout(int sessionId, const QString &method, const QString &tendered, const QString & /*operatorName*/, int customerId)
 {
+    const QString operatorName = Auth::operatorName();
+    if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
     if (m_cart.isEmpty()) return fail("Adicione produtos ao carrinho.");
     if (operatorName.trimmed().isEmpty()) return fail("Informe o responsável pela venda.");
@@ -346,9 +363,10 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
         customerName = q.value(0).toString();
         q.finish();
     }
-    q.prepare("INSERT INTO sales(cash_session_id,total_amount,total_cents,operator_name,customer_id) VALUES(?,?,?,?,?)");
+    q.prepare("INSERT INTO sales(cash_session_id,total_amount,total_cents,operator_name,customer_id,user_id) VALUES(?,?,?,?,?,?)");
     q.addBindValue(sessionId); q.addBindValue(amount/100.0); q.addBindValue(amount); q.addBindValue(operatorName.trimmed());
     q.addBindValue(customerId > 0 ? QVariant(customerId) : QVariant());
+    q.addBindValue(Auth::userId());
     if (!q.exec()) return fail(q.lastError().text());
     const auto saleId = q.lastInsertId().toLongLong();
     QString receipt = QString("Venda #%1\nCliente: %2\n").arg(saleId).arg(customerId > 0 ? customerName : QStringLiteral("Consumidor não identificado"));
@@ -366,8 +384,8 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
         q.prepare("INSERT INTO sale_items(sale_id,product_id,product_code,product_name,quantity,unit_price_cents,total_cents) VALUES(?,?,?,?,?,?,?)");
         for (const auto &value : QVariantList{saleId,id,code,name,quantity,row.value("unit_price_cents"),row.value("total_cents")}) q.addBindValue(value);
         if (!q.exec()) return fail(q.lastError().text());
-        q.prepare("INSERT INTO inventory_movements(product_id,type,quantity,previous_balance,balance,reason,operator_name) VALUES(?,'exit',?,?,?,?,?)");
-        for (const auto &value : QVariantList{id,-quantity,previous,previous-quantity,QString("Venda #%1").arg(saleId),operatorName.trimmed()}) q.addBindValue(value);
+        q.prepare("INSERT INTO inventory_movements(product_id,type,quantity,previous_balance,balance,reason,operator_name,user_id) VALUES(?,'exit',?,?,?,?,?,?)");
+        for (const auto &value : QVariantList{id,-quantity,previous,previous-quantity,QString("Venda #%1").arg(saleId),operatorName.trimmed(),Auth::userId()}) q.addBindValue(value);
         if (!q.exec()) return fail(q.lastError().text());
         receipt += QString("%1 × %2: %3\n").arg(quantity).arg(name.toString(),currency(row.value("total_cents").toLongLong()));
     }

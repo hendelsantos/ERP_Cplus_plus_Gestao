@@ -8,7 +8,7 @@ Cadastros, estoque, caixa/PDV básicos, consulta de vendas, histórico por clien
 
 ## Etapas necessárias
 
-1. Base modular: registro central de módulos/dependências já disponível; faltam usuários, login, permissões e auditoria. Configuração atual de módulos não constitui licença ou controle de acesso.
+1. Base modular: registro central de módulos/dependências já disponível; usuários, login offline e dois perfis básicos disponíveis; faltam permissões customizáveis e auditoria geral. Configuração atual de módulos não constitui licença ou controle de acesso.
 2. Operação comercial: fornecedores, financeiro, descontos, pagamentos divididos, cancelamento/devolução transacional e comprovantes.
 3. Segmentos: definir requisitos e testar separadamente grade de roupas, unidades/peso e ordens de serviço. Selecionar um perfil hoje não fornece essas funcionalidades.
 4. Confiabilidade: evolução de backups antigos, backup automático, recuperação testada, testes de falhas e atualização preservando dados.

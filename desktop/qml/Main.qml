@@ -34,7 +34,55 @@ ApplicationWindow {
     property color surface: "#ffffff"
     property color canvas: "#f4f6f5"
 
+    AuthPage {
+        anchors.centerIn: parent
+        width: Math.min(480,parent.width-48)
+        visible: !authStore.authenticated
+        auth: authStore
+    }
+    Dialog {
+        id: passwordDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(520,parent.width-32)
+        modal: true
+        title: "Alterar minha senha"
+        onOpened: { passwordResult.text = ""; currentPassword.forceActiveFocus() }
+        onClosed: { currentPassword.clear(); newPassword.clear(); confirmPassword.clear() }
+        contentItem: ColumnLayout {
+            Label {
+                text: "Informe sua senha atual e uma nova senha de 12 a 128 caracteres. Sua sessão e o carrinho serão mantidos. Sessões anteriores serão invalidadas; o código de recuperação existente continuará válido."
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+            }
+            TextField { id: currentPassword; objectName: "currentPassword"; placeholderText: "Senha atual"; echoMode: TextInput.Password; maximumLength: 128; Layout.fillWidth: true }
+            TextField { id: newPassword; objectName: "newPassword"; placeholderText: "Nova senha"; echoMode: TextInput.Password; maximumLength: 128; Layout.fillWidth: true }
+            TextField { id: confirmPassword; objectName: "confirmPassword"; placeholderText: "Confirme a nova senha"; echoMode: TextInput.Password; maximumLength: 128; Layout.fillWidth: true }
+            Label { id: passwordResult; Layout.fillWidth: true; wrapMode: Text.Wrap }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar alteração"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button {
+                text: "Alterar senha"
+                DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
+                onClicked: {
+                    var ok = authStore.changePassword(currentPassword.text,newPassword.text,confirmPassword.text)
+                    currentPassword.clear(); newPassword.clear(); confirmPassword.clear()
+                    passwordResult.text = authStore.message
+                    if (ok) passwordDialog.close()
+                }
+            }
+            onRejected: passwordDialog.close()
+        }
+    }
+    Connections {
+        target: authStore
+        function onChanged() {
+            if (authStore.authenticated) { posStore.refresh(); posStore.refreshDashboard() }
+            else { passwordDialog.close(); window.activeSection = "Dashboard" }
+        }
+    }
     RowLayout {
+        visible: authStore.authenticated
         anchors.fill: parent
         spacing: 0
 
@@ -90,9 +138,15 @@ ApplicationWindow {
                     }
                 }
 
+                Button { visible: authStore.user.role === "admin"; text: "Usuários"; onClicked: window.activeSection = "Usuários" }
+                Label { text: authStore.user.name || ""; color: "white"; Layout.fillWidth: true; elide: Text.ElideRight }
+                Button { text: "Minha senha"; onClicked: passwordDialog.open() }
+                Button { text: "Sair"; onClicked: authStore.logout() }
+                Label { visible: authStore.message.length > 0; text: authStore.message; color: "white"; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 Item { Layout.fillHeight: true }
                 ItemDelegate {
                     Layout.fillWidth: true
+                    visible: authStore.user.role === "admin"
                     text: "Configurações"
                     contentItem: Label {
                         text: parent.text
@@ -133,12 +187,18 @@ ApplicationWindow {
                 }
 
                 Label {
-                    visible: window.activeSection !== "Dashboard" && !window.isCatalog && window.activeSection !== "Estoque" && window.activeSection !== "PDV" && window.activeSection !== "Caixa" && window.activeSection !== "Vendas" && window.activeSection !== "Configurações"
+                    visible: window.activeSection !== "Usuários" && window.activeSection !== "Dashboard" && !window.isCatalog && window.activeSection !== "Estoque" && window.activeSection !== "PDV" && window.activeSection !== "Caixa" && window.activeSection !== "Vendas" && window.activeSection !== "Configurações"
                     text: "Módulo preparado para a próxima etapa do MVP."
                     color: window.muted
                     font.pixelSize: 16
                 }
 
+                UsersPage {
+                    visible: window.activeSection === "Usuários" && authStore.user.role === "admin"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    auth: authStore
+                }
                 RowLayout {
                     visible: window.activeSection === "Configurações"
                     Button { text: "Empresa e módulos"; onClicked: window.businessSettings = true }

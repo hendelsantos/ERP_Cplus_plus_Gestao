@@ -1,3 +1,4 @@
+#include "auth_fixture.h"
 #include "core/settings/settings.h"
 #include "core/database/database.h"
 #include "modules/catalog/catalog.h"
@@ -43,13 +44,79 @@ class UiTest : public QObject
         return item && item->setProperty("text", text);
     }
 private slots:
+    void offlineLoginWorkflow() {
+        QTemporaryDir directory;
+        MHStore::Database::DatabaseManager database;
+        QVERIFY(database.initialize(nullptr,directory.filePath("auth-ui.sqlite")));
+        MHStore::Auth::resetSession();
+        {
+            MHStore::Auth auth;
+            MHStore::Catalog catalog;
+            MHStore::Inventory inventory;
+            MHStore::Pos pos;
+            MHStore::Backup backup;
+            MHStore::Settings settings;
+            QQmlApplicationEngine engine;
+            QStringList warnings;
+            connect(&engine,&QQmlEngine::warnings,this,[&](const QList<QQmlError> &errors) { for(const auto &e:errors) warnings << e.toString(); });
+            engine.rootContext()->setContextProperty("authStore",&auth);
+            engine.rootContext()->setContextProperty("catalogStore",&catalog);
+            engine.rootContext()->setContextProperty("inventoryStore",&inventory);
+            engine.rootContext()->setContextProperty("posStore",&pos);
+            engine.rootContext()->setContextProperty("backupStore",&backup);
+            engine.rootContext()->setContextProperty("settingsStore",&settings);
+            engine.load(QUrl::fromLocalFile(QStringLiteral(MHSTORE_QML_DIR "/Main.qml")));
+            QVERIFY(!engine.rootObjects().isEmpty());
+            window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+            QVERIFY(window); window->resize(960,640);
+            QVERIFY(QTest::qWaitForWindowExposed(window));
+            QVERIFY(!catalog.save("Clientes",0,{{"name","Bloqueado"}}));
+            QVERIFY(!inventory.move(1,"entry","1","Teste","Falso"));
+            QVERIFY(!backup.create(directory.filePath("backup")));
+            QVERIFY(fill("authName","Administrador"));
+            QVERIFY(fill("authLogin","admin"));
+            QVERIFY(fill("authPassword","SenhaTeste123!"));
+            QVERIFY(fill("authConfirm","SenhaTeste123!"));
+            QVERIFY(click("Criar administrador"));
+            QVERIFY(!auth.needsSetup()); QVERIFY(!auth.authenticated());
+            QVERIFY(click("Guardei o código"));
+            QVERIFY(fill("authPassword","incorreta")); QVERIFY(click("Entrar"));
+            QVERIFY(!auth.authenticated());
+            QVERIFY(fill("authPassword","SenhaTeste123!")); QVERIFY(click("Entrar"));
+            QVERIFY(auth.authenticated());
+            QVERIFY(click("Usuários"));
+            const auto folder=qEnvironmentVariable("MHSTORE_TEST_SCREENSHOTS");
+            if(!folder.isEmpty()) window->grabWindow().save(folder+"/users.png");
+            QVERIFY(auth.saveUser(0,"Caixa","caixa","SenhaCaixa123!","operator",true));
+            QVERIFY(click("Sair"));
+            QVERIFY(!auth.authenticated());
+            if(!folder.isEmpty()) window->grabWindow().save(folder+"/login.png");
+            QVERIFY(fill("authLogin","caixa")); QVERIFY(fill("authPassword","SenhaCaixa123!"));
+            QVERIFY(click("Entrar"));
+            QVERIFY(auth.authenticated());
+            QVERIFY(!click("Usuários"));
+            QVERIFY(!click("Configurações"));
+            QVERIFY(!catalog.save("Clientes",0,{{"name","Bloqueado"}}));
+            QVERIFY(!catalog.setActive("Clientes",1,false));
+            QVERIFY(!inventory.move(1,"entry","1","Teste","Falso"));
+            QVERIFY(!backup.create(directory.filePath("backup")));
+            QVERIFY(!backup.restore(directory.filePath("missing")));
+            QVERIFY(click("Sair"));
+            QVERIFY2(warnings.isEmpty(),qPrintable(warnings.join('\n')));
+            window=nullptr;
+        }
+        QSqlDatabase::database().close();
+        QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+    }
     void catalogAndInventoryWorkflow()
     {
         QTemporaryDir directory;
         MHStore::Database::DatabaseManager database;
         QString error;
         QVERIFY2(database.initialize(&error, directory.filePath("ui.sqlite")), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
         {
+            MHStore::Auth auth;
             MHStore::Catalog catalog;
             QVERIFY(catalog.save("Clientes",0,{{"name","Cliente de teste"}}));
             MHStore::Inventory inventory;
@@ -58,6 +125,7 @@ private slots:
             MHStore::Settings settings;
             settings.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
             QQmlApplicationEngine engine;
+            engine.rootContext()->setContextProperty("authStore", &auth);
             engine.rootContext()->setContextProperty("settingsStore", &settings);
             QStringList warnings;
             connect(&engine, &QQmlEngine::warnings, this, [&](const QList<QQmlError> &errors) {
