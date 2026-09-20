@@ -12,6 +12,8 @@ Siga a [estrutura e roteiro do projeto](ESTRUTURA_DO_PROJETO.md) para orientar a
 
 Veja a [comparação com o plano e próximas etapas](docs/progresso.md). Para retomar o desenvolvimento, leia [CONTINUAR_AQUI.md](CONTINUAR_AQUI.md).
 
+O plano operacional das próximas entregas está em [docs/proximas-entregas.md](docs/proximas-entregas.md).
+
 ## Compilar, testar e abrir nesta máquina
 
 O Qt 6.4.2 foi preparado em `~/.local/share/mhstore-qt`, a partir de pacotes Ubuntu, sem instalação administrativa. O script configura as bibliotecas e os plugins apenas para o comando executado:
