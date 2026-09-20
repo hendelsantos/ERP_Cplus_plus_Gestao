@@ -41,7 +41,8 @@ public:
     QVariantList saleItems() const { return m_saleItems; }
     bool moreSales() const { return m_moreSales; }
     QString salesError() const { return m_salesError; }
-    Q_INVOKABLE void searchSales(const QString &number = {}, int page = 0, int customerId = 0);
+    Q_INVOKABLE void searchSales(const QString &number = {}, int page = 0, int customerId = 0,
+                                 const QString &fromDate = {}, const QString &toDate = {});
     Q_INVOKABLE bool loadSale(int saleId);
     QVariantList products() const { return m_products; }
     QVariantList cart() const { return m_cart; }

@@ -141,7 +141,7 @@ void Pos::refreshDashboard()
     emit dashboardChanged();
 }
 
-void Pos::searchSales(const QString &number, int page, int customerId)
+void Pos::searchSales(const QString &number, int page, int customerId, const QString &fromDate, const QString &toDate)
 {
     if (!Auth::allowed("read")) { m_sales.clear(); m_customerSummary.clear(); m_moreSales=false; m_salesError="Entre para consultar vendas."; emit salesChanged(); emit changed(); return; }
     m_sales.clear();
@@ -152,7 +152,14 @@ void Pos::searchSales(const QString &number, int page, int customerId)
     bool validNumber = false;
     const qint64 id = input.toLongLong(&validNumber);
     static const QRegularExpression digits(QStringLiteral("^[0-9]+$"));
-    if (customerId < 0 || page < 0 || page > 1000000 || (!input.isEmpty() && (!validNumber || id <= 0 || !digits.match(input).hasMatch()))) {
+    const auto startDate = fromDate.trimmed();
+    const auto endDate = toDate.trimmed();
+    const QRegularExpression isoDate(QStringLiteral("^\\d{4}-\\d{2}-\\d{2}$"));
+    if (customerId < 0 || page < 0 || page > 1000000 ||
+        (!input.isEmpty() && (!validNumber || id <= 0 || !digits.match(input).hasMatch())) ||
+        (!startDate.isEmpty() && !isoDate.match(startDate).hasMatch()) ||
+        (!endDate.isEmpty() && !isoDate.match(endDate).hasMatch()) ||
+        (!startDate.isEmpty() && !endDate.isEmpty() && startDate > endDate)) {
         m_salesError = QStringLiteral("Informe um número de venda válido.");
         emit salesChanged();
         return;
@@ -163,7 +170,11 @@ void Pos::searchSales(const QString &number, int page, int customerId)
                   "COALESCE(SUM(s.total_cents),0) AS spent_cents, "
                   "datetime(MAX(s.created_at),'localtime') AS last_purchase "
                   "FROM customers c LEFT JOIN sales s ON s.customer_id=c.id AND s.status='completed' "
-                  "WHERE c.id=? GROUP BY c.id");
+              "AND (?='' OR date(s.created_at,'localtime')>=date(?)) "
+              "AND (?='' OR date(s.created_at,'localtime')<=date(?)) "
+              "WHERE c.id=? GROUP BY c.id");
+        q.addBindValue(startDate); q.addBindValue(startDate);
+        q.addBindValue(endDate); q.addBindValue(endDate);
         q.addBindValue(customerId);
         if (!q.exec()) m_salesError = q.lastError().text();
         else {
@@ -176,11 +187,16 @@ void Pos::searchSales(const QString &number, int page, int customerId)
     q.prepare("SELECT s.id, s.cash_session_id, s.total_cents, s.status, s.operator_name, "
               "datetime(s.created_at,'localtime') AS local_created_at, p.method "
               "FROM sales s LEFT JOIN payments p ON p.sale_id=s.id "
-              "WHERE (?=0 OR s.id=?) AND (?=0 OR (s.customer_id=? AND s.status='completed')) ORDER BY s.id DESC LIMIT 51 OFFSET ?");
+              "WHERE (?=0 OR s.id=?) AND (?=0 OR (s.customer_id=? AND s.status='completed')) "
+              "AND (?='' OR date(s.created_at,'localtime')>=date(?)) "
+              "AND (?='' OR date(s.created_at,'localtime')<=date(?)) "
+              "ORDER BY s.id DESC LIMIT 51 OFFSET ?");
     q.addBindValue(input.isEmpty() ? 0 : id);
     q.addBindValue(input.isEmpty() ? 0 : id);
     q.addBindValue(customerId);
     q.addBindValue(customerId);
+    q.addBindValue(startDate); q.addBindValue(startDate);
+    q.addBindValue(endDate); q.addBindValue(endDate);
     q.addBindValue(page * 50);
     if (!q.exec()) { m_salesError = q.lastError().text(); m_customerSummary.clear(); }
     else {

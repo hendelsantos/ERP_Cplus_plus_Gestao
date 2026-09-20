@@ -645,6 +645,20 @@ private slots:
         pos.searchSales("",-1);
         QVERIFY(!pos.salesError().isEmpty());
     }
+    void salesDateFilter() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO sales(total_cents,created_at) VALUES(1000,'2026-09-10 10:00:00'),(2000,'2026-09-20 10:00:00'),(3000,'2026-09-30 10:00:00')"));
+        MHStore::Pos pos;
+        pos.searchSales("",0,0,"2026-09-15","2026-09-25");
+        QCOMPARE(pos.sales().size(),1);
+        QCOMPARE(pos.sales().first().toMap().value("total_cents").toInt(),2000);
+        pos.searchSales("",0,0,"2026-09-25","2026-09-15");
+        QVERIFY(pos.sales().isEmpty());
+        QVERIFY(!pos.salesError().isEmpty());
+        pos.searchSales("",0,0,"2026-09-xx",{});
+        QVERIFY(pos.sales().isEmpty());
+        QVERIFY(!pos.salesError().isEmpty());
+    }
     void dashboardMetrics() {
         MHStore::Pos pos;
         pos.refreshDashboard();

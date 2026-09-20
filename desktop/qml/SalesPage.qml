@@ -12,7 +12,7 @@ ColumnLayout {
     function money(cents) { return "R$ " + (Number(cents || 0)/100).toLocaleString(Qt.locale("pt_BR"),'f',2) }
     function payment(method) { return ({cash:"Dinheiro",pix:"PIX",credit:"Crédito",debit:"Débito",other:"Outros"})[method] || "Pagamento não disponível" }
     function status(value) { return value === "completed" ? "Concluída" : value }
-    function reload() { if (ready) pos.searchSales(number.text,pageNumber,customerId) }
+    function reload() { if (ready) pos.searchSales(number.text,pageNumber,customerId,fromDate.text,toDate.text) }
     function showCustomer(id) {
         customerId = id
         pageNumber = 0
@@ -44,6 +44,20 @@ ColumnLayout {
             objectName: "salesNumber"
             placeholderText: "Número da venda (vazio para todas)"
             Layout.fillWidth: true
+            onTextChanged: { page.pageNumber = 0; page.reload() }
+        }
+        TextField {
+            id: fromDate
+            objectName: "salesFromDate"
+            placeholderText: "De (AAAA-MM-DD)"
+            Layout.preferredWidth: 140
+            onTextChanged: { page.pageNumber = 0; page.reload() }
+        }
+        TextField {
+            id: toDate
+            objectName: "salesToDate"
+            placeholderText: "Até (AAAA-MM-DD)"
+            Layout.preferredWidth: 140
             onTextChanged: { page.pageNumber = 0; page.reload() }
         }
         Button { text: "Atualizar vendas"; onClicked: page.reload() }
