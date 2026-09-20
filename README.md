@@ -103,7 +103,7 @@ Abra **Vendas** para listar os registros mais recentes. A listagem possui págin
 
 Clique em **Ver venda** para consultar data/hora local, caixa, responsável, itens, preços, total, forma de pagamento, valor recebido e troco. Os itens mostram o código, nome e preço gravados no momento da venda, mesmo após alterar ou inativar o produto.
 
-As consultas funcionam após reiniciar o aplicativo. Registros antigos que não possuem itens ou pagamento detalhado são identificados sem inventar essas informações. O histórico aceita filtro opcional por período no formato `AAAA-MM-DD` e permite exportar os resultados para CSV UTF-8.
+As consultas funcionam após reiniciar o aplicativo. Registros antigos que não possuem itens ou pagamento detalhado são identificados sem inventar essas informações. O histórico aceita filtro opcional por período no formato `AAAA-MM-DD` e permite exportar os resultados para CSV UTF-8 ou PDF.
 
 
 ## Dashboard

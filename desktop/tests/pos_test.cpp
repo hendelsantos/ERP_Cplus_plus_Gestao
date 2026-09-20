@@ -279,7 +279,7 @@ private slots:
         QCOMPARE(scalar("SELECT SUM(amount_cents) FROM payment_items WHERE method='cash'").toInt(),1000);
         QCOMPARE(scalar("SELECT SUM(amount_cents) FROM payment_items WHERE method='pix'").toInt(),990);
         QCOMPARE(scalar("SELECT total_cents FROM sales").toInt(),1990);
-        QCOMPARE(pos.cash().value("cash_expected").toInt(),10990);
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),11000);
         QVERIFY(!pos.checkout(session, "cash|pix", "10,00|5,00", "Ana"));
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
     }
@@ -592,7 +592,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),10);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),12);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }
@@ -631,6 +631,7 @@ private slots:
         for (int i=0;i<52;++i) QVERIFY(q.exec("INSERT INTO sales(total_amount,total_cents) VALUES(1.25,125)"));
         MHStore::Pos pos;
         pos.searchSales();
+        QVERIFY2(pos.salesError().isEmpty(), qPrintable(pos.salesError()));
         QCOMPARE(pos.sales().size(),50);
         QVERIFY(pos.moreSales());
         QCOMPARE(pos.sales().first().toMap().value("id").toInt(),52);
@@ -673,6 +674,19 @@ private slots:
         QVERIFY(!content.contains("1000"));
         QVERIFY(!pos.exportSalesCsv(directory.filePath("invalido"),"2026-09-25","2026-09-15"));
         QVERIFY(!pos.exportSalesCsv("relatorio.csv"));
+    }
+    void exportSalesPdf() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO sales(total_cents,operator_name,created_at) VALUES(1000,'Ana','2026-09-10 10:00:00'),(2000,'Bia','2026-09-20 10:00:00')"));
+        const auto pdfPath = directory.filePath("relatorio.pdf");
+        MHStore::Pos pos;
+        QVERIFY(pos.exportSalesPdf(pdfPath,"2026-09-15","2026-09-25"));
+        QFile pdf(pdfPath);
+        QVERIFY(pdf.open(QIODevice::ReadOnly));
+        const auto content = pdf.readAll();
+        QVERIFY(content.startsWith("%PDF-"));
+        QVERIFY(content.size() > 500);
+        QVERIFY(!pos.exportSalesPdf(directory.filePath("invalido"),"2026-09-25","2026-09-15"));
     }
     void dashboardMetrics() {
         MHStore::Pos pos;
@@ -809,5 +823,5 @@ private slots:
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
     }
 };
-QTEST_GUILESS_MAIN(PosTest)
+QTEST_MAIN(PosTest)
 #include "pos_test.moc"

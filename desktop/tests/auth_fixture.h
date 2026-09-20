@@ -11,7 +11,13 @@ inline bool removeAdjustmentMigration() {
     QSqlQuery q;
     for (const auto &column : {"subtotal_cents","discount_cents","surcharge_cents","adjustment_reason"})
         if (!q.exec(QString("ALTER TABLE sales DROP COLUMN %1").arg(column))) return false;
-    return q.exec("DELETE FROM schema_migrations WHERE version=10");
+    if (!q.exec("ALTER TABLE sales DROP COLUMN cancel_reason")) return false;
+    if (!q.exec("DROP TABLE payment_items")) return false;
+    if (!q.exec("CREATE TABLE payments_old (id INTEGER PRIMARY KEY, sale_id INTEGER NOT NULL UNIQUE REFERENCES sales(id), method TEXT NOT NULL CHECK(method IN ('cash','pix','credit','debit','other')), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), tendered_cents INTEGER NOT NULL, change_cents INTEGER NOT NULL CHECK(change_cents >= 0))")) return false;
+    if (!q.exec("INSERT INTO payments_old SELECT id,sale_id,method,amount_cents,tendered_cents,change_cents FROM payments WHERE method <> 'split'")) return false;
+    if (!q.exec("DROP TABLE payments")) return false;
+    if (!q.exec("ALTER TABLE payments_old RENAME TO payments")) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12)");
 }
 inline bool removeComplementaryMigration() {
     if (!removeAdjustmentMigration()) return false;

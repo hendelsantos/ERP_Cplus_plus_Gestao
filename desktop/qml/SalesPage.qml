@@ -66,6 +66,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Button { text: "Exportar CSV"; onClicked: { exportFile.text = ""; exportDialog.open() } }
+        Button { text: "Exportar PDF"; onClicked: { exportFile.text = ""; exportDialog.pdf = true; exportDialog.open() } }
         Label { text: page.exportStatus; color: "#166534"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     }
     Label { text: page.pos.salesError; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
@@ -106,11 +107,12 @@ ColumnLayout {
     }
     Dialog {
         id: exportDialog
+        property bool pdf: false
         parent: Overlay.overlay
         anchors.centerIn: parent
         width: Math.min(560,parent.width-32)
         modal: true
-        title: "Exportar vendas para CSV"
+        title: exportDialog.pdf ? "Exportar vendas para PDF" : "Exportar vendas para CSV"
         contentItem: ColumnLayout {
             Label {
                 text: "Informe o caminho absoluto do arquivo. O período preenchido na tela será aplicado ao relatório."
@@ -120,7 +122,7 @@ ColumnLayout {
             TextField {
                 id: exportFile
                 objectName: "salesExportFile"
-                placeholderText: "/caminho/relatorio.csv"
+                placeholderText: exportDialog.pdf ? "/caminho/relatorio.pdf" : "/caminho/relatorio.csv"
                 Layout.fillWidth: true
             }
             Label {
@@ -134,12 +136,16 @@ ColumnLayout {
         footer: DialogButtonBox {
             Button { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
             Button {
-                text: "Exportar"
+                text: exportDialog.pdf ? "Exportar PDF" : "Exportar CSV"
                 enabled: exportFile.text.length > 0
                 DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
                 onClicked: {
-                    if (page.pos.exportSalesCsv(exportFile.text,fromDate.text,toDate.text)) {
+                    const exported = exportDialog.pdf
+                        ? page.pos.exportSalesPdf(exportFile.text,fromDate.text,toDate.text)
+                        : page.pos.exportSalesCsv(exportFile.text,fromDate.text,toDate.text)
+                    if (exported) {
                         page.exportStatus = "CSV exportado: " + exportFile.text
+                        if (exportDialog.pdf) page.exportStatus = "PDF exportado: " + exportFile.text
                         exportDialog.close()
                     }
                 }

@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Sql)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Sql PrintSupport)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 qt_standard_project_setup(REQUIRES 6.4)
@@ -86,7 +86,7 @@ if(BUILD_TESTING)
         src/core/database/database.h
     )
     target_include_directories(pos_tests PRIVATE src)
-    target_link_libraries(pos_tests PRIVATE Qt6::Test Qt6::Sql)
+    target_link_libraries(pos_tests PRIVATE Qt6::Test Qt6::Sql Qt6::Gui)
     add_test(NAME pos_tests COMMAND pos_tests)
     qt_add_executable(backup_tests
         tests/backup_test.cpp
@@ -122,5 +122,6 @@ foreach(app_target MHStore catalog_tests inventory_tests pos_tests backup_tests 
     if(TARGET ${app_target})
         target_sources(${app_target} PRIVATE src/core/settings/settings.cpp src/core/settings/settings.h src/core/auth/auth.cpp src/core/auth/auth.h src/core/audit/audit.cpp src/core/audit/audit.h)
         target_link_libraries(${app_target} PRIVATE OpenSSL::Crypto)
+            target_link_libraries(${app_target} PRIVATE Qt6::PrintSupport)
     endif()
 endforeach()

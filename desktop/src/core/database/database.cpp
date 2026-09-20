@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 11) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 12) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),

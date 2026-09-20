@@ -164,7 +164,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 - [ ] Contas a pagar, contas a receber e despesas.
 - [ ] Baixas e relação explícita com movimentos de caixa, evitando duplicidade.
-- [ ] Filtro de vendas por período e relatórios CSV/PDF.
+- [x] Filtro de vendas por período e relatórios CSV/PDF.
 - [ ] Indicadores financeiros baseados nos registros implementados.
 
 **Concluída quando:** totais e saldos puderem ser conferidos a partir dos registros, com filtros e exportações testados.

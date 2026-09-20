@@ -12,6 +12,10 @@
 #include <QSaveFile>
 #include <QTextStream>
 #include <QStringConverter>
+#include <QPainter>
+#include <QPdfWriter>
+#include <QPageSize>
+#include <QTemporaryFile>
 
 namespace MHStore {
 namespace {
@@ -32,10 +36,7 @@ QString cashBalanceExpression()
 {
     return QStringLiteral("c.opening_cents + COALESCE((SELECT SUM(pi.amount_cents) "
         "FROM payment_items pi JOIN sales s ON s.id=pi.sale_id WHERE s.cash_session_id=c.id "
-        "AND s.status='completed' AND pi.method='cash'),0) + "
-        "COALESCE((SELECT SUM(CASE WHEN p.method='cash' THEN p.amount_cents ELSE 0 END) "
-        "FROM payments p JOIN sales s ON s.id=p.sale_id WHERE s.cash_session_id=c.id "
-        "AND s.status='completed'),0) + COALESCE((SELECT SUM("
+        "AND s.status='completed' AND pi.method='cash'),0) + COALESCE((SELECT SUM("
         "CASE WHEN m.type='supply' THEN m.amount_cents ELSE -m.amount_cents END) "
         "FROM cash_movements m WHERE m.cash_session_id=c.id),0)");
 }
@@ -176,15 +177,17 @@ void Pos::searchSales(const QString &number, int page, int customerId, const QSt
     }
     QSqlQuery q;
     if (customerId > 0) {
-        q.prepare("SELECT c.id, c.name, c.active, COUNT(s.id) AS purchase_count, "
+        auto statement = QStringLiteral("SELECT c.id, c.name, c.active, COUNT(s.id) AS purchase_count, "
                   "COALESCE(SUM(s.total_cents),0) AS spent_cents, "
                   "datetime(MAX(s.created_at),'localtime') AS last_purchase "
                   "FROM customers c LEFT JOIN sales s ON s.customer_id=c.id AND s.status='completed' "
-              "AND (?='' OR date(s.created_at,'localtime')>=date(?)) "
-              "AND (?='' OR date(s.created_at,'localtime')<=date(?)) "
-              "WHERE c.id=? GROUP BY c.id");
-        q.addBindValue(startDate); q.addBindValue(startDate);
-        q.addBindValue(endDate); q.addBindValue(endDate);
+                  );
+        if (!startDate.isEmpty()) statement += " AND date(s.created_at,'localtime')>=date(?)";
+        if (!endDate.isEmpty()) statement += " AND date(s.created_at,'localtime')<=date(?)";
+        statement += " WHERE c.id=? GROUP BY c.id";
+        q.prepare(statement);
+        if (!startDate.isEmpty()) q.addBindValue(startDate);
+        if (!endDate.isEmpty()) q.addBindValue(endDate);
         q.addBindValue(customerId);
         if (!q.exec()) m_salesError = q.lastError().text();
         else {
@@ -194,19 +197,20 @@ void Pos::searchSales(const QString &number, int page, int customerId, const QSt
         }
         if (!m_salesError.isEmpty()) { emit salesChanged(); return; }
     }
-    q.prepare("SELECT s.id, s.cash_session_id, s.total_cents, s.status, s.operator_name, "
+    auto statement = QStringLiteral("SELECT s.id, s.cash_session_id, s.total_cents, s.status, s.operator_name, "
               "datetime(s.created_at,'localtime') AS local_created_at, p.method "
               "FROM sales s LEFT JOIN payments p ON p.sale_id=s.id "
-              "WHERE (?=0 OR s.id=?) AND (?=0 OR (s.customer_id=? AND s.status='completed')) "
-              "AND (?='' OR date(s.created_at,'localtime')>=date(?)) "
-              "AND (?='' OR date(s.created_at,'localtime')<=date(?)) "
-              "ORDER BY s.id DESC LIMIT 51 OFFSET ?");
-    q.addBindValue(input.isEmpty() ? 0 : id);
-    q.addBindValue(input.isEmpty() ? 0 : id);
-    q.addBindValue(customerId);
-    q.addBindValue(customerId);
-    q.addBindValue(startDate); q.addBindValue(startDate);
-    q.addBindValue(endDate); q.addBindValue(endDate);
+              "WHERE 1=1");
+    if (!input.isEmpty()) statement += " AND s.id=?";
+    if (customerId > 0) statement += " AND s.customer_id=? AND s.status='completed'";
+    if (!startDate.isEmpty()) statement += " AND date(s.created_at,'localtime')>=date(?)";
+    if (!endDate.isEmpty()) statement += " AND date(s.created_at,'localtime')<=date(?)";
+    statement += " ORDER BY s.id DESC LIMIT 51 OFFSET ?";
+    q.prepare(statement);
+    if (!input.isEmpty()) q.addBindValue(id);
+    if (customerId > 0) q.addBindValue(customerId);
+    if (!startDate.isEmpty()) q.addBindValue(startDate);
+    if (!endDate.isEmpty()) q.addBindValue(endDate);
     q.addBindValue(page * 50);
     if (!q.exec()) { m_salesError = q.lastError().text(); m_customerSummary.clear(); }
     else {
@@ -468,7 +472,7 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     for (int i = 0; i < methods.size(); ++i) {
         q.prepare("INSERT INTO payment_items(sale_id,method,amount_cents,tendered_cents,change_cents) VALUES(?,?,?,?,?)");
         const auto methodName = methods[i];
-        const auto itemAmount = parts[i];
+        const auto itemAmount = methodName == "cash" && methods.size() == 1 ? amount : parts[i];
         const auto itemTendered = methodName == "cash" ? (methods.size() == 1 ? parts[i] : itemAmount) : itemAmount;
         const auto itemChange = methodName == "cash" && methods.size() == 1 ? std::max<qint64>(0, itemTendered - amount) : 0;
         for (const auto &value : QVariantList{saleId,methodName,itemAmount,itemTendered,itemChange}) q.addBindValue(value);
@@ -583,6 +587,79 @@ bool Pos::exportSalesCsv(const QString &filePath, const QString &fromDate, const
         stream << '\n';
     }
     if (stream.status() != QTextStream::Ok || !file.commit()) return fail(file.errorString());
+    m_error.clear(); emit changed();
+    return true;
+}
+
+bool Pos::exportSalesPdf(const QString &filePath, const QString &fromDate, const QString &toDate)
+{
+    if (!Auth::allowed("read")) return fail("Acesso negado. Entre com um usuário autorizado.");
+    const auto path = filePath.trimmed();
+    const auto startDate = fromDate.trimmed();
+    const auto endDate = toDate.trimmed();
+    const QRegularExpression isoDate(QStringLiteral("^\\d{4}-\\d{2}-\\d{2}$"));
+    if (path.isEmpty() || !QFileInfo(path).isAbsolute()) return fail("Informe um caminho absoluto para o arquivo PDF.");
+    if ((!startDate.isEmpty() && !isoDate.match(startDate).hasMatch()) ||
+        (!endDate.isEmpty() && !isoDate.match(endDate).hasMatch()) ||
+        (!startDate.isEmpty() && !endDate.isEmpty() && startDate > endDate))
+        return fail("Informe um período válido no formato AAAA-MM-DD.");
+
+    QSqlQuery query;
+    query.prepare("SELECT s.id, datetime(s.created_at,'localtime'), s.status, s.total_cents, "
+                  "s.operator_name, COALESCE(p.method,''), COALESCE(p.amount_cents,0) "
+                  "FROM sales s LEFT JOIN payments p ON p.sale_id=s.id "
+                  "WHERE (?='' OR date(s.created_at,'localtime')>=date(?)) "
+                  "AND (?='' OR date(s.created_at,'localtime')<=date(?)) ORDER BY s.id");
+    query.addBindValue(startDate); query.addBindValue(startDate);
+    query.addBindValue(endDate); query.addBindValue(endDate);
+    if (!query.exec()) return fail(query.lastError().text());
+
+    QTemporaryFile temporary(QFileInfo(path).absolutePath() + QStringLiteral("/.mhstore-pdf-XXXXXX"));
+    if (!temporary.open()) return fail(temporary.errorString());
+    const auto temporaryPath = temporary.fileName();
+    temporary.close();
+    QPdfWriter writer(temporaryPath);
+    writer.setPageSize(QPageSize(QPageSize::A4));
+    writer.setResolution(96);
+    QPainter painter(&writer);
+    if (!painter.isActive()) {
+        QFile::remove(temporaryPath);
+        return fail("Não foi possível criar o PDF.");
+    }
+    const auto pageWidth = writer.width();
+    const auto pageHeight = writer.height();
+    const auto left = 80;
+    const auto right = pageWidth - 80;
+    const auto lineHeight = 34;
+    int y = 90;
+    painter.setFont(QFont(QStringLiteral("sans"), 16, QFont::Bold));
+    painter.drawText(left, y, QStringLiteral("Relatório de vendas"));
+    y += 35;
+    painter.setFont(QFont(QStringLiteral("sans"), 9));
+    painter.drawText(left, y, QStringLiteral("Período: %1 a %2").arg(startDate.isEmpty() ? QStringLiteral("início") : startDate,
+        endDate.isEmpty() ? QStringLiteral("fim") : endDate));
+    y += 40;
+    painter.setFont(QFont(QStringLiteral("sans"), 8, QFont::Bold));
+    painter.drawText(left, y, QStringLiteral("Venda     Data                 Status       Total       Operador        Pagamento"));
+    y += lineHeight;
+    painter.setFont(QFont(QStringLiteral("sans"), 8));
+    while (query.next()) {
+        if (y > pageHeight - 70) { writer.newPage(); y = 90; }
+        const auto line = QStringLiteral("#%1     %2     %3     %4     %5     %6")
+            .arg(query.value(0).toString(), query.value(1).toString(), query.value(2).toString(),
+                 query.value(3).toString(), query.value(4).toString(), query.value(5).toString());
+        painter.drawText(left, y, painter.fontMetrics().elidedText(line, Qt::ElideRight, right - left));
+        y += lineHeight;
+    }
+    painter.end();
+    if (QFile::exists(path) && !QFile::remove(path)) {
+        QFile::remove(temporaryPath);
+        return fail("Não foi possível substituir o PDF existente.");
+    }
+    if (!QFile::rename(temporaryPath, path)) {
+        QFile::remove(temporaryPath);
+        return fail("Não foi possível finalizar o arquivo PDF.");
+    }
     m_error.clear(); emit changed();
     return true;
 }
