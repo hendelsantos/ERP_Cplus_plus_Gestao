@@ -66,6 +66,7 @@ public:
     Q_INVOKABLE bool moveCash(int sessionId, const QString &type, const QString &amount,
                               const QString &reason, const QString &operatorName);
     Q_INVOKABLE bool checkout(int sessionId, const QString &method, const QString &tendered, const QString &operatorName, int customerId = 0);
+    Q_INVOKABLE bool cancelSale(int saleId, const QString &reason);
 signals:
     void changed();
     void customersChanged();

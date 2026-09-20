@@ -189,6 +189,22 @@ private slots:
         QVERIFY(auth.recover("bia",persisted,"SenhaPersiste123!"));
         QVERIFY(auth.login("bia","SenhaPersiste123!"));
     }
+    void cancelSale() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("100,00","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.checkout(session,"cash","20,00","Ana"));
+        QCOMPARE(scalar("SELECT status FROM sales WHERE id=1").toString(),QString("completed"));
+        QVERIFY(!pos.cancelSale(1,""));
+        QVERIFY(pos.cancelSale(1,"Erro de item"));
+        QCOMPARE(scalar("SELECT status FROM sales WHERE id=1").toString(),QString("cancelled"));
+        QCOMPARE(scalar("SELECT cancel_reason FROM sales WHERE id=1").toString(),QString("Erro de item"));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),10);
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),10000);
+        QVERIFY(!pos.cancelSale(1,"Duplicado"));
+        QVERIFY(!pos.cancelSale(999,"Qualquer"));
+    }
     void saleAdjustments() {
         MHStore::Pos pos;
         QVERIFY(!pos.setAdjustments("1","0","Teste"));

@@ -459,4 +459,65 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     m_receipt = receipt + QString("Total: %1\nTroco: %2").arg(currency(amount),currency(changeAmount));
     resetAdjustments(); m_cart.clear(); refresh(m_search); return true;
 }
+
+bool Pos::cancelSale(int saleId, const QString &reason)
+{
+    if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
+    if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
+
+    const auto cleanReason = reason.trimmed();
+    if (cleanReason.isEmpty() || cleanReason.size() > 200) return fail("Informe uma justificativa com até 200 caracteres.");
+
+    Transaction tx;
+    if (!tx.begin()) return fail("Banco ocupado. Tente novamente.");
+
+    QSqlQuery q;
+    q.prepare("SELECT id, cash_session_id, status, total_cents, operator_name, user_id FROM sales WHERE id = ?");
+    q.addBindValue(saleId);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!q.next()) return fail("Venda não encontrada.");
+    if (q.value("status").toString() != "completed") return fail("A venda já não está mais em aberto para cancelamento.");
+
+    const auto saleSessionId = q.value("cash_session_id").toInt();
+    const auto saleOperator = q.value("operator_name").toString();
+    const auto saleUserId = q.value("user_id").toInt();
+    const auto saleTotalCents = q.value("total_cents").toLongLong();
+
+    q.prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ? ORDER BY id");
+    q.addBindValue(saleId);
+    if (!q.exec()) return fail(q.lastError().text());
+    while (q.next()) {
+        const auto productId = q.value(0).toInt();
+        const auto quantity = q.value(1).toInt();
+        q.prepare("SELECT stock_quantity FROM products WHERE id = ? AND active = 1");
+        q.addBindValue(productId);
+        if (!q.exec()) return fail(q.lastError().text());
+        if (!q.next()) return fail("Produto da venda não encontrado ou inativo.");
+        const auto currentStock = q.value(0).toDouble();
+
+        q.prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
+        q.addBindValue(currentStock + quantity);
+        q.addBindValue(productId);
+        if (!q.exec()) return fail(q.lastError().text());
+
+        q.prepare("INSERT INTO inventory_movements(product_id,type,quantity,previous_balance,balance,reason,operator_name,user_id) VALUES(?,?,?,?,?,?,?,?)");
+        for (const auto &value : QVariantList{productId, QStringLiteral("entry"), quantity, currentStock, currentStock + quantity,
+                QString("Cancelamento da venda #%1").arg(saleId), saleOperator.isEmpty() ? QStringLiteral("Sistema") : saleOperator, saleUserId})
+            q.addBindValue(value);
+        if (!q.exec()) return fail(q.lastError().text());
+    }
+
+    q.prepare("UPDATE sales SET status = 'cancelled', cancel_reason = ? WHERE id = ?");
+    q.addBindValue(cleanReason);
+    q.addBindValue(saleId);
+    if (!q.exec()) return fail(q.lastError().text());
+
+    if (!Audit::record("sale.cancel", "Venda #" + QString::number(saleId),
+        QString("Motivo: %1; total: %2").arg(cleanReason, currency(saleTotalCents))))
+        return fail("Falha ao registrar a auditoria do cancelamento.");
+
+    if (!tx.commit()) return fail(tx.db.lastError().text());
+    refresh(m_search);
+    return true;
+}
 }
