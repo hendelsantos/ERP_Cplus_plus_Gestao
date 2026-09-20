@@ -120,6 +120,8 @@ Após finalizar uma venda, o comprovante não fiscal pode ser exportado para PDF
 
 Produtos podem registrar tamanho e cor opcionais, exibidos no cadastro e no carrinho do PDV. O estoque separado por variação ainda será implementado.
 
+O cadastro também permite marcar um item como **Serviço**. Serviços podem ser vendidos no PDV sem alterar estoque ou criar movimentos de inventário; ordens de serviço ainda estão pendentes.
+
 Vendas consideradas: somente as concluídas, agrupadas pelo horário local do computador. Estoque crítico inclui produtos ativos com saldo menor ou igual ao mínimo; produtos sem estoque também entram nessa contagem. Sem vendas, o ticket médio é zero. Sem caixa aberto, o saldo é zero e o painel informa que não há sessão aberta.
 
 O painel atualiza ao abrir o aplicativo, ao voltar para **Dashboard**, a cada minuto enquanto está visível ou pelo botão **Atualizar painel**. Uma falha de consulta exibe indicadores indisponíveis, em vez de apresentar dados antigos como atuais. Indicadores financeiros, gráficos e exportações ainda estão pendentes.

@@ -592,7 +592,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),16);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),17);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }
@@ -688,6 +688,17 @@ private slots:
         const auto content = pdf.readAll();
         QVERIFY(content.startsWith("%PDF-"));
         QVERIFY(content.size() > 500);
+    }
+    void serviceSaleDoesNotMoveStock() {
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE products SET product_type='service', stock_quantity=0, name='Conserto' WHERE id=1"));
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("0","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.checkout(session,"pix","","Ana"));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toDouble(),0.0);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM inventory_movements").toInt(),0);
     }
     void exportSalesCsv() {
         QSqlQuery q;

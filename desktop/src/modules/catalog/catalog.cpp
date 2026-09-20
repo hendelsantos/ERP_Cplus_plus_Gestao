@@ -157,6 +157,9 @@ bool Catalog::save(const QString &section, int id, const QVariantMap &values)
         data.insert("category_id", category > 0 ? QVariant(category) : QVariant());
         const int supplier = values.value("supplier_id").toInt();
         data.insert("supplier_id", supplier > 0 ? QVariant(supplier) : QVariant());
+        const auto productType = values.value("product_type", QStringLiteral("product")).toString();
+        if (productType != "product" && productType != "service") return fail(QStringLiteral("Tipo de cadastro inválido."));
+        data.insert("product_type", productType);
     } else if (table == "customers") {
         const auto address = values.value("address", QStringLiteral("")).toString().trimmed();
         const auto notes = values.value("notes", QStringLiteral("")).toString().trimmed();

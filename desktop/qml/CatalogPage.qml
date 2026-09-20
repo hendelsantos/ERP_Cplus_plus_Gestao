@@ -101,6 +101,7 @@ ColumnLayout {
             unitField.text = row.unit || ""
             sizeField.text = row.size || ""
             colorField.text = row.color || ""
+            typeField.currentIndex = row.product_type === "service" ? 1 : 0
             maximumField.text = String(row.maximum_stock || 0).replace('.', ',')
             locationField.text = row.location || ""
             notesField.text = row.notes || ""
@@ -130,6 +131,7 @@ ColumnLayout {
                 Label { text: "Nome / descrição *" }
                 TextField { id: nameField; objectName: "catalogName"; Layout.fillWidth: true; placeholderText: "Nome do cadastro" }
                 Label { visible: page.section === "Produtos"; text: "Código interno * / código de barras" }
+                ComboBox { id: typeField; objectName: "catalogProductType"; visible: page.section === "Produtos"; model: ["Produto", "Serviço"] }
                 RowLayout {
                     visible: page.section === "Produtos"
                     TextField { id: codeField; objectName: "catalogCode"; Layout.fillWidth: true; placeholderText: "Código interno" }
@@ -185,7 +187,7 @@ ColumnLayout {
                         cost_price: costField.text, sale_price: priceField.text, minimum_stock: minimumField.text,
                         category_id: editor.categoryOptions[categoryField.currentIndex].id,
                         supplier_id: editor.supplierOptions[supplierField.currentIndex].id,
-                        brand: brandField.text, unit: unitField.text, size: sizeField.text, color: colorField.text, maximum_stock: maximumField.text,
+                        brand: brandField.text, unit: unitField.text, size: sizeField.text, color: colorField.text, product_type: typeField.currentIndex === 1 ? "service" : "product", maximum_stock: maximumField.text,
                         location: locationField.text, notes: notesField.text, address: addressField.text, birth_date: birthField.text,
                         document: documentField.text, phone: phoneField.text, email: emailField.text
                     })

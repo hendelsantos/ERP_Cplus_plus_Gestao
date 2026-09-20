@@ -95,7 +95,7 @@ void Pos::refresh(const QString &search)
     QString term = search.trimmed();
     term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     QSqlQuery q;
-    q.prepare("SELECT id, code, barcode, name, sale_price_cents, stock_quantity FROM products WHERE active = 1 AND "
+    q.prepare("SELECT id, code, barcode, name, sale_price_cents, stock_quantity, product_type, size, color FROM products WHERE active = 1 AND "
               "(name LIKE :term ESCAPE '\\' OR code LIKE :term ESCAPE '\\' OR barcode LIKE :term ESCAPE '\\') ORDER BY name COLLATE NOCASE");
     q.bindValue(":term", "%" + term + "%");
     if (!q.exec()) { fail(q.lastError().text()); return; }
@@ -267,13 +267,13 @@ bool Pos::add(int productId)
         if (row.value("id").toInt() == productId) return setQuantity(productId, row.value("quantity").toInt()+1);
     }
     QSqlQuery q;
-    q.prepare("SELECT id, code, name, sale_price_cents, stock_quantity, size, color FROM products WHERE id = ? AND active = 1");
+    q.prepare("SELECT id, code, name, sale_price_cents, stock_quantity, size, color, product_type FROM products WHERE id = ? AND active = 1");
     q.addBindValue(productId);
     if (!q.exec()) return fail(q.lastError().text());
     if (!q.next()) return fail("Produto não encontrado ou inativo.");
     const qint64 price = q.value(3).toLongLong();
     if (price <= 0 || price > limit) return fail("Informe um preço de venda maior que zero no cadastro.");
-    if (q.value(4).toDouble() < 1) return fail("Estoque insuficiente.");
+    if (q.value(7).toString() != "service" && q.value(4).toDouble() < 1) return fail("Estoque insuficiente.");
     if (subtotal() + price > limit) return fail("Valor da venda acima do limite.");
     resetAdjustments();
     const auto size = q.value(5).toString();
@@ -463,20 +463,25 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     for (const auto &entry : m_cart) {
         const auto row = entry.toMap();
         const int id = row.value("id").toInt(); const double quantity = row.value("quantity").toDouble();
-        q.prepare("SELECT stock_quantity, sale_price_cents, code, name FROM products WHERE id=? AND active=1"); q.addBindValue(id);
+        q.prepare("SELECT stock_quantity, sale_price_cents, code, name, product_type FROM products WHERE id=? AND active=1"); q.addBindValue(id);
         if (!q.exec()) return fail(q.lastError().text());
-        if (!q.next() || q.value(0).toDouble() + 0.0001 < quantity) return fail("Produto inativo ou saldo insuficiente. Revise o carrinho.");
+        if (!q.next() || (q.value(4).toString() != "service" && q.value(0).toDouble() + 0.0001 < quantity)) return fail("Produto inativo ou saldo insuficiente. Revise o carrinho.");
+        const bool isService = q.value(4).toString() == "service";
         if (q.value(1).toLongLong() != row.value("unit_price_cents").toLongLong()) return fail("O preço de um produto mudou. Remova e adicione o item novamente.");
         const double previous = q.value(0).toDouble();
         const auto code = q.value(2), name = q.value(3); q.finish();
+        if (!isService) {
         q.prepare("UPDATE products SET stock_quantity=stock_quantity-? WHERE id=?"); q.addBindValue(quantity); q.addBindValue(id);
         if (!q.exec()) return fail(q.lastError().text());
+        }
         q.prepare("INSERT INTO sale_items(sale_id,product_id,product_code,product_name,quantity,unit_price_cents,total_cents) VALUES(?,?,?,?,?,?,?)");
         for (const auto &value : QVariantList{saleId,id,code,name,quantity,row.value("unit_price_cents"),row.value("total_cents")}) q.addBindValue(value);
         if (!q.exec()) return fail(q.lastError().text());
+        if (!isService) {
         q.prepare("INSERT INTO inventory_movements(product_id,type,quantity,previous_balance,balance,reason,operator_name,user_id) VALUES(?,'exit',?,?,?,?,?,?)");
         for (const auto &value : QVariantList{id,-quantity,previous,previous-quantity,QString("Venda #%1").arg(saleId),operatorName.trimmed(),Auth::userId()}) q.addBindValue(value);
         if (!q.exec()) return fail(q.lastError().text());
+        }
         receipt += QString("%1 × %2: %3\n").arg(quantity).arg(name.toString(),currency(row.value("total_cents").toLongLong()));
     }
     q.prepare("INSERT INTO payments(sale_id,method,amount_cents,tendered_cents,change_cents) VALUES(?,?,?,?,?)");
