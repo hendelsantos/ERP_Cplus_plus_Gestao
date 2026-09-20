@@ -50,6 +50,7 @@ Backup local manual e restauração estão disponíveis; agendamento permanece p
 8. Serviços podem ser cadastrados e vendidos no PDV sem consumo de estoque ou movimento de inventário.
 9. Ordens de serviço podem ser abertas para cliente e serviço, com descrição, observações e status controlado.
 10. Materiais podem ser associados à OS e são consumidos atomicamente do estoque ao concluir o serviço.
+11. Produtos de roupas podem compartilhar um grupo de variação; cada registro mantém seu estoque independente por tamanho/cor.
 4. Adicionar agendamento de backup e ampliar relatórios.
 
 O saldo de estoque não pode ser editado no cadastro. A autenticação e identificação do operador precisam ser consideradas antes de disponibilizar operações que exijam auditoria por usuário. A versão 3 migra preços, valores de venda e abertura/fechamento para centavos inteiros. O PDV usa esses campos; os campos REAL originais permanecem como espelho de compatibilidade.

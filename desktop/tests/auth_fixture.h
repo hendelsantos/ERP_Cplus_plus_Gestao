@@ -19,12 +19,14 @@ inline bool removeAdjustmentMigration() {
     if (!q.exec("ALTER TABLE payments_old RENAME TO payments")) return false;
     if (!q.exec("DROP TABLE IF EXISTS expenses")) return false;
     if (!q.exec("DROP TABLE IF EXISTS receivables")) return false;
+    if (!q.exec("DROP INDEX IF EXISTS products_variant_group")) return false;
     for (const auto &column : {"size", "color"})
         if (!q.exec(QString("ALTER TABLE products DROP COLUMN %1").arg(column))) return false;
     if (!q.exec("ALTER TABLE products DROP COLUMN product_type")) return false;
     if (!q.exec("DROP TABLE IF EXISTS service_orders")) return false;
     if (!q.exec("DROP TABLE IF EXISTS service_order_materials")) return false;
-    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14,15,16,17,18,19)");
+    if (!q.exec("ALTER TABLE products DROP COLUMN variant_group")) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14,15,16,17,18,19,20)");
 }
 inline bool removeComplementaryMigration() {
     if (!removeAdjustmentMigration()) return false;

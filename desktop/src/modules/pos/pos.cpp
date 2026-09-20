@@ -95,7 +95,7 @@ void Pos::refresh(const QString &search)
     QString term = search.trimmed();
     term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     QSqlQuery q;
-    q.prepare("SELECT id, code, barcode, name, sale_price_cents, stock_quantity, product_type, size, color FROM products WHERE active = 1 AND "
+    q.prepare("SELECT id, code, barcode, name, sale_price_cents, stock_quantity, product_type, size, color, variant_group FROM products WHERE active = 1 AND "
               "(name LIKE :term ESCAPE '\\' OR code LIKE :term ESCAPE '\\' OR barcode LIKE :term ESCAPE '\\') ORDER BY name COLLATE NOCASE");
     q.bindValue(":term", "%" + term + "%");
     if (!q.exec()) { fail(q.lastError().text()); return; }

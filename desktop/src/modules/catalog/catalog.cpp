@@ -143,14 +143,16 @@ bool Catalog::save(const QString &section, int id, const QVariantMap &values)
         const auto unit = values.value("unit", QStringLiteral("")).toString().trimmed();
         const auto size = values.value("size", QStringLiteral("")).toString().trimmed();
         const auto color = values.value("color", QStringLiteral("")).toString().trimmed();
+        const auto variantGroup = values.value("variant_group", QStringLiteral("")).toString().trimmed();
         const auto location = values.value("location", QStringLiteral("")).toString().trimmed();
         const auto notes = values.value("notes", QStringLiteral("")).toString().trimmed();
-        if (brand.size() > 60 || unit.size() > 10 || size.size() > 20 || color.size() > 40 || location.size() > 60 || notes.size() > 500)
+        if (brand.size() > 60 || unit.size() > 10 || size.size() > 20 || color.size() > 40 || variantGroup.size() > 60 || location.size() > 60 || notes.size() > 500)
             return fail(QStringLiteral("Marca e localização aceitam até 60 caracteres; unidade, 10; tamanho, 20; cor, 40; observações, 500."));
         data.insert("brand", brand);
         data.insert("unit", unit);
         data.insert("size", size);
         data.insert("color", color);
+        data.insert("variant_group", variantGroup);
         data.insert("location", location);
         data.insert("notes", notes);
         const int category = values.value("category_id").toInt();

@@ -101,6 +101,7 @@ ColumnLayout {
             unitField.text = row.unit || ""
             sizeField.text = row.size || ""
             colorField.text = row.color || ""
+            variantGroupField.text = row.variant_group || ""
             typeField.currentIndex = row.product_type === "service" ? 1 : 0
             maximumField.text = String(row.maximum_stock || 0).replace('.', ',')
             locationField.text = row.location || ""
@@ -137,6 +138,7 @@ ColumnLayout {
                     TextField { id: codeField; objectName: "catalogCode"; Layout.fillWidth: true; placeholderText: "Código interno" }
                     TextField { id: barcodeField; Layout.fillWidth: true; placeholderText: "Código de barras" }
                 }
+                TextField { id: variantGroupField; objectName: "catalogVariantGroup"; visible: page.section === "Produtos"; placeholderText: "Grupo de variação (ex.: CAM-01)"; maximumLength: 60; Layout.fillWidth: true }
                 Label { visible: page.section === "Produtos"; text: "Categoria" }
                 ComboBox { id: categoryField; visible: page.section === "Produtos"; Layout.fillWidth: true; model: editor.categoryOptions; textRole: "name" }
                 Label { visible: page.section === "Produtos"; text: "Fornecedor" }
@@ -187,7 +189,7 @@ ColumnLayout {
                         cost_price: costField.text, sale_price: priceField.text, minimum_stock: minimumField.text,
                         category_id: editor.categoryOptions[categoryField.currentIndex].id,
                         supplier_id: editor.supplierOptions[supplierField.currentIndex].id,
-                        brand: brandField.text, unit: unitField.text, size: sizeField.text, color: colorField.text, product_type: typeField.currentIndex === 1 ? "service" : "product", maximum_stock: maximumField.text,
+                        brand: brandField.text, unit: unitField.text, size: sizeField.text, color: colorField.text, variant_group: variantGroupField.text, product_type: typeField.currentIndex === 1 ? "service" : "product", maximum_stock: maximumField.text,
                         location: locationField.text, notes: notesField.text, address: addressField.text, birth_date: birthField.text,
                         document: documentField.text, phone: phoneField.text, email: emailField.text
                     })
