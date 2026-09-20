@@ -214,3 +214,18 @@ Repositório Git iniciado na branch `main`, com código, testes, scripts e docum
 - Limites: dois perfis fixos, sem troca da própria senha na sessão, sem auditoria geral nem criptografia do arquivo SQLite. Consulte `docs/autenticacao.md`.
 
 Validação: compilação concluída; **5/5 conjuntos de testes aprovados**. Após ampliar o fluxo de primeiro acesso, o teste de interface passou novamente, sem avisos QML. Telas de login e usuários conferidas em 960 × 640. Bancos temporários, sem alterações no banco real.
+
+
+## Continuação — troca da própria senha
+
+Data: 20/09/2026. Item “Troca da própria senha, exigindo a senha atual” da Etapa 1 em `ESTRUTURA_DO_PROJETO.md` marcado como concluído.
+
+- Acesso pelo botão **Minha senha** na navegação, disponível para administrador e operador autenticados; exige senha atual, nova senha e confirmação.
+- Validações no C++: sessão ativa, senhas coincidentes, política de 12–128 caracteres, senha atual correta e diferente da nova. Erros de senha atual incrementam o contador de tentativas; cinco falhas bloqueiam a alteração e o login por 300 segundos, e o sucesso zera o contador.
+- Novo salt e hash PBKDF2 gravados em transação com verificação de sessão e versão; a gravação exige exatamente uma linha afetada.
+- Sessão atual é mantida (o processo adota a nova versão); demais sessões são invalidadas pelo incremento de `session_version`. O código de recuperação existente permanece válido.
+- Sem migração: banco e backups permanecem no esquema 6.
+- Testes de serviço (`pos_test.cpp`, `ownPasswordChange`): sem sessão, senha curta, confirmação divergente, senha igual à atual, senha atual incorreta sem alterar hash/salt, sucesso com novo hash/salt e versão incrementada, sessão mantida e autorizada, bloqueio após cinco falhas, senha antiga rejeitada no login, recuperação pelo código original preservado e persistência após reabrir o banco.
+- Teste de interface (`ui_test.cpp`): diálogo abre pelo botão, tentativa com senha atual errada mantém a sessão e exibe mensagem, alteração bem-sucedida encerra o diálogo e mantém a sessão, logout e novo login rejeitam a senha antiga e aceitam a nova. Captura gerada sem avisos QML.
+
+Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; diálogo conferido por captura em 960 × 640 (`password.png`). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.

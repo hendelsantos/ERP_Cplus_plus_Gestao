@@ -82,7 +82,7 @@ Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto
 | Área | Estado atual | Evolução necessária |
 | --- | --- | --- |
 | Empresa e módulos | Base disponível | Ampliar configurações conforme os novos módulos |
-| Usuários e acesso offline | Base disponível, administrador e operador | Própria senha, recuperação ampliada, permissões configuráveis |
+| Usuários e acesso offline | Base disponível, administrador e operador, troca da própria senha | Recuperação ampliada, permissões configuráveis |
 | Produtos, categorias e clientes | Base disponível | Campos complementares e requisitos por segmento |
 | Fornecedores | Pendente | Cadastro, busca, status e vínculos com produtos/compras |
 | Estoque | Base disponível | Inventário em lote e custo médio |
@@ -129,7 +129,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ### Etapa 1 — Completar o acesso local
 
-- [ ] Troca da própria senha, exigindo a senha atual.
+- [x] Troca da própria senha, exigindo a senha atual. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
 - [ ] Emissão/rotação de código de recuperação para administradores adicionais.
 - [ ] Definir permissões por ação antes de oferecer perfis configuráveis.
 - [ ] Registrar auditoria das alterações de usuários e permissões.
@@ -194,15 +194,15 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ## 8. Próxima tarefa concreta
 
-**Implementar troca da própria senha.**
+**Emissão/rotação de código de recuperação para administradores adicionais.**
 
 Escopo:
 
-1. Acesso por administrador ou operador autenticado.
-2. Informar senha atual, nova senha e confirmação.
-3. Validar a senha atual e a política existente; gerar novo salt e hash.
-4. Definir o tratamento da sessão atual, das demais sessões e do código de recuperação, explicando o resultado ao usuário.
-5. Gravar atomicamente e testar senha atual incorreta, confirmação divergente, senha inválida, persistência e novo login.
+1. Administrador autenticado emite um código de recuperação para outra conta de administrador ativa.
+2. Código aleatório de uso único exibido uma única vez ao emissor; somente o hash é persistido, como no fluxo inicial.
+3. Emitir substitui e invalida o código anterior da conta; edição administrativa da conta continua invalidando o código.
+4. Recuperação existente passa a aceitar qualquer administrador ativo com código válido.
+5. Gravar atomicamente e testar emissão, reemissão, uso do código anterior, conta inativa/inexistente, permissões de operador e fluxo pela interface.
 6. Atualizar documentação e ponto de continuidade.
 
 Não alterar o banco real para executar testes.

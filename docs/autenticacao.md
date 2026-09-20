@@ -9,6 +9,7 @@ O SQLite guarda usuários e permissões; a sessão existe somente na memória do
 - Cinco falhas bloqueiam a conta por 300 segundos; contador e prazo persistidos. Recuperação por código remove o bloqueio.
 - Sessão contém identificador, versão e caminho do banco. Cada autorização verifica novamente usuário ativo e versão. Alterações administrativas revogam sessões.
 - Setup usa transação de escrita e só cria administrador quando a tabela de usuários está vazia. Não há conta ou senha padrão.
+- Troca da própria senha exige sessão ativa, senha atual correta e nova senha válida e diferente. Gera novo salt e hash em transação; a sessão atual é mantida, as demais são invalidadas e o código de recuperação existente permanece válido. Senha atual incorreta conta como tentativa falha: cinco bloqueiam por 300 segundos.
 
 Referências: [OWASP — armazenamento de senhas](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), [OpenSSL PBKDF2](https://docs.openssl.org/3.4/man3/PKCS5_PBKDF2_HMAC/), [OpenSSL RAND_bytes](https://docs.openssl.org/3.4/man3/RAND_bytes/), [comparação constante](https://docs.openssl.org/3.4/man3/CRYPTO_memcmp/).
 
@@ -26,5 +27,5 @@ O esquema 6 preserva registros antigos com vínculos nulos. Recuperação de bac
 
 - Controle de acesso dentro do aplicativo não protege contra alguém com permissão do sistema operacional para editar ou copiar o SQLite. Banco e backup não estão criptografados.
 - Relógio local controla bloqueio temporário. Um backup antigo pode restaurar senhas/códigos e contadores antigos; proteja os arquivos.
-- Troca da própria senha pela sessão, recuperação para administradores adicionais, permissões customizáveis e auditoria geral ainda pendentes.
+- Recuperação para administradores adicionais, permissões customizáveis e auditoria geral ainda pendentes.
 - OpenSSL deve acompanhar o pacote Windows; instalação e renderização em Windows ainda precisam ser validadas.

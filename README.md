@@ -167,7 +167,9 @@ O menu e as opções de módulos usam um registro central com identificador, nom
 
 No primeiro acesso, crie o administrador com nome, login (3–40 letras/números/ponto/traço/underscore) e senha de 12–128 caracteres. O sistema mostra um código de recuperação: guarde-o fora do computador, confirme que o guardou e faça login. Nenhuma chamada de rede é necessária para criar ou validar usuários.
 
-Em **Usuários**, o administrador cria e edita contas, escolhe o perfil, redefine senhas e inativa/reativa acessos. Login é único e não diferencia maiúsculas. Na edição, senha vazia mantém a atual. Não há exclusão de usuários. Seu próprio cadastro é alterado por outro administrador nesta versão.
+Em **Usuários**, o administrador cria e edita contas, escolhe o perfil, redefine senhas e inativa/reativa acessos. Login é único e não diferencia maiúsculas. Na edição, senha vazia mantém a atual. Não há exclusão de usuários. O próprio cadastro (nome, login, perfil) é alterado por outro administrador nesta versão.
+
+**Minha senha**, no menu lateral, permite a qualquer usuário autenticado trocar a própria senha informando a senha atual. A sessão e o carrinho são mantidos; sessões anteriores são invalidadas e o código de recuperação existente continua válido.
 
 | Operação | Administrador | Operador de caixa |
 | --- | --- | --- |

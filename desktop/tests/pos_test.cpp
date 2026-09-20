@@ -93,6 +93,42 @@ private slots:
         QVERIFY(QSqlDatabase::database().open());
         QVERIFY(auth.login("adm","SenhaFinal12345!"));
     }
+    void ownPasswordChange() {
+        MHStore::Auth::resetSession();
+        QSqlQuery q; QVERIFY(q.exec("DELETE FROM users"));
+        MHStore::Auth auth;
+        QVERIFY(auth.setup("Admin","adm","SenhaTeste123!"));
+        const auto code=auth.recoveryCode();
+        QVERIFY(!auth.changePassword("SenhaTeste123!","NovaSenha12345!","NovaSenha12345!"));
+        QVERIFY(auth.login("adm","SenhaTeste123!"));
+        QVERIFY(!auth.changePassword("SenhaTeste123!","curta","curta"));
+        QVERIFY(!auth.changePassword("SenhaTeste123!","NovaSenha12345!","Divergente1234!"));
+        QVERIFY(!auth.changePassword("SenhaTeste123!","SenhaTeste123!","SenhaTeste123!"));
+        QVERIFY(!auth.changePassword("errada","NovaSenha12345!","NovaSenha12345!"));
+        QCOMPARE(scalar("SELECT failed_attempts FROM users").toInt(),1);
+        const auto version=scalar("SELECT session_version FROM users").toInt();
+        const auto hash=scalar("SELECT password_hash FROM users").toByteArray();
+        const auto salt=scalar("SELECT salt FROM users").toByteArray();
+        QVERIFY(auth.changePassword("SenhaTeste123!","NovaSenha12345!","NovaSenha12345!"));
+        QCOMPARE(scalar("SELECT session_version FROM users").toInt(),version+1);
+        QVERIFY(scalar("SELECT password_hash FROM users").toByteArray()!=hash);
+        QVERIFY(scalar("SELECT salt FROM users").toByteArray()!=salt);
+        QCOMPARE(scalar("SELECT failed_attempts FROM users").toInt(),0);
+        QVERIFY(auth.authenticated());
+        QVERIFY(MHStore::Auth::allowed("settings"));
+        for(int i=0;i<5;++i) QVERIFY(!auth.changePassword("errada","OutraSenha12345!","OutraSenha12345!"));
+        QVERIFY(!auth.changePassword("NovaSenha12345!","OutraSenha12345!","OutraSenha12345!"));
+        QVERIFY(auth.authenticated());
+        QVERIFY(auth.logout());
+        QVERIFY(!auth.login("adm","SenhaTeste123!"));
+        QVERIFY(!auth.login("adm","NovaSenha12345!"));
+        QVERIFY(auth.recover("adm",code,"SenhaFinal12345!"));
+        QVERIFY(auth.login("adm","SenhaFinal12345!"));
+        QVERIFY(auth.logout());
+        QSqlDatabase::database().close();
+        QVERIFY(QSqlDatabase::database().open());
+        QVERIFY(auth.login("adm","SenhaFinal12345!"));
+    }
     void moduleRegistry() {
         MHStore::Settings settings;
         const QVariantMap disabled={{"inventory",false},{"cash",false},{"pos",false}};
