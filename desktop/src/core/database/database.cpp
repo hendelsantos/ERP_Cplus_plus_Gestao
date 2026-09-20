@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 13) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 14) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -151,6 +151,10 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("CREATE TABLE expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, description TEXT NOT NULL CHECK(length(trim(description)) > 0), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), due_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','paid','cancelled')), paid_at TEXT, cash_session_id INTEGER REFERENCES cash_sessions(id), operator_name TEXT NOT NULL DEFAULT '', user_id INTEGER REFERENCES users(id), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE INDEX expenses_status_due ON expenses(status, due_date, id DESC)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (13)")
+    }, {
+        QStringLiteral("CREATE TABLE receivables (id INTEGER PRIMARY KEY AUTOINCREMENT, description TEXT NOT NULL CHECK(length(trim(description)) > 0), customer_id INTEGER REFERENCES customers(id), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), due_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','received','cancelled')), received_at TEXT, cash_session_id INTEGER REFERENCES cash_sessions(id), operator_name TEXT NOT NULL DEFAULT '', user_id INTEGER REFERENCES users(id), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+        QStringLiteral("CREATE INDEX receivables_status_due ON receivables(status, due_date, id DESC)"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (14)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

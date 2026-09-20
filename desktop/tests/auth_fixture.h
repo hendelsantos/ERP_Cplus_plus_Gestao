@@ -18,7 +18,8 @@ inline bool removeAdjustmentMigration() {
     if (!q.exec("DROP TABLE payments")) return false;
     if (!q.exec("ALTER TABLE payments_old RENAME TO payments")) return false;
     if (!q.exec("DROP TABLE IF EXISTS expenses")) return false;
-    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13)");
+    if (!q.exec("DROP TABLE IF EXISTS receivables")) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14)");
 }
 inline bool removeComplementaryMigration() {
     if (!removeAdjustmentMigration()) return false;

@@ -32,12 +32,57 @@ bool money(QString value, qint64 &cents) {
 Finance::Finance(QObject *parent) : QObject(parent) { refresh(); }
 bool Finance::fail(const QString &message) { m_error = message; emit changed(); return false; }
 void Finance::refresh(bool includePaid) {
-    if (!Auth::allowed("read")) { m_expenses.clear(); emit changed(); return; }
+    if (!Auth::allowed("read")) { m_expenses.clear(); m_receivables.clear(); emit changed(); return; }
     QSqlQuery query;
     query.prepare(QStringLiteral("SELECT id, description, amount_cents, due_date, status, paid_at, cash_session_id, operator_name, datetime(created_at,'localtime') AS local_created_at FROM expenses %1 ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, due_date, id DESC")
         .arg(includePaid ? QString() : QStringLiteral("WHERE status='open'")));
     if (!query.exec()) { m_expenses.clear(); fail(query.lastError().text()); return; }
     m_expenses = records(query); m_error.clear(); emit changed();
+    query.prepare(QStringLiteral("SELECT r.id, r.description, r.customer_id, c.name AS customer_name, r.amount_cents, r.due_date, r.status, r.received_at, r.cash_session_id, datetime(r.created_at,'localtime') AS local_created_at FROM receivables r LEFT JOIN customers c ON c.id=r.customer_id %1 ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.due_date, r.id DESC")
+        .arg(includePaid ? QString() : QStringLiteral("WHERE r.status='open'")));
+    if (!query.exec()) { m_receivables.clear(); fail(query.lastError().text()); return; }
+    m_receivables = records(query); emit changed();
+}
+
+bool Finance::createReceivable(const QString &description, const QString &amount, const QString &dueDate, int customerId) {
+    if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem lançar recebíveis.");
+    qint64 cents = 0;
+    if (description.trimmed().isEmpty() || description.trimmed().size() > 200 || !money(amount, cents) || !QDate::fromString(dueDate.trimmed(), Qt::ISODate).isValid() || customerId < 0)
+        return fail("Informe descrição, valor positivo, vencimento válido e cliente opcional.");
+    QSqlQuery query;
+    if (customerId > 0) {
+        query.prepare("SELECT id FROM customers WHERE id=? AND active=1"); query.addBindValue(customerId);
+        if (!query.exec() || !query.next()) return fail("Cliente inexistente ou inativo.");
+    }
+    query.prepare("INSERT INTO receivables(description,customer_id,amount_cents,due_date,operator_name,user_id) VALUES(?,?,?,?,?,?)");
+    for (const auto &value : QVariantList{description.trimmed(), customerId > 0 ? QVariant(customerId) : QVariant(), cents, dueDate.trimmed(), Auth::operatorName(), Auth::userId()}) query.addBindValue(value);
+    if (!query.exec()) return fail(query.lastError().text());
+    refresh(); return true;
+}
+
+bool Finance::receiveReceivable(int receivableId, int cashSessionId) {
+    if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem receber contas.");
+    auto db = QSqlDatabase::database();
+    if (!db.transaction()) return fail(db.lastError().text());
+    auto rollback = [&](const QString &message) { db.rollback(); return fail(message); };
+    QSqlQuery query(db);
+    query.prepare("SELECT description, amount_cents, status FROM receivables WHERE id=?"); query.addBindValue(receivableId);
+    if (!query.exec() || !query.next()) return rollback("Conta a receber não encontrada.");
+    if (query.value(2).toString() != "open") return rollback("Esta conta já foi recebida ou cancelada.");
+    const auto description = query.value(0).toString(); const auto cents = query.value(1).toLongLong(); query.finish();
+    query.prepare("SELECT opening_cents + COALESCE((SELECT SUM(pi.amount_cents) FROM payment_items pi JOIN sales s ON s.id=pi.sale_id WHERE s.cash_session_id=c.id AND s.status='completed' AND pi.method='cash'),0) + COALESCE((SELECT SUM(CASE WHEN type='supply' THEN amount_cents ELSE -amount_cents END) FROM cash_movements WHERE cash_session_id=c.id),0) FROM cash_sessions c WHERE c.id=? AND c.status='open'");
+    query.addBindValue(cashSessionId);
+    if (!query.exec() || !query.next()) return rollback("Abra um caixa antes de receber a conta.");
+    const auto previous = query.value(0).toLongLong(); query.finish();
+    query.prepare("INSERT INTO cash_movements(cash_session_id,type,amount_cents,previous_cents,balance_cents,reason,operator_name,user_id) VALUES(?,?,?,?,?,?,?,?)");
+    for (const auto &value : QVariantList{cashSessionId, QStringLiteral("supply"), cents, previous, previous + cents, QStringLiteral("Recebimento #%1: %2").arg(receivableId).arg(description), Auth::operatorName(), Auth::userId()}) query.addBindValue(value);
+    if (!query.exec()) return rollback(query.lastError().text());
+    query.prepare("UPDATE receivables SET status='received', received_at=CURRENT_TIMESTAMP, cash_session_id=?, operator_name=?, user_id=? WHERE id=? AND status='open'");
+    for (const auto &value : QVariantList{cashSessionId, Auth::operatorName(), Auth::userId(), receivableId}) query.addBindValue(value);
+    if (!query.exec() || query.numRowsAffected() != 1) return rollback("Não foi possível receber a conta.");
+    if (!Audit::record("finance.receive", QStringLiteral("Conta #%1").arg(receivableId), QStringLiteral("Valor: %1; caixa: %2").arg(cents).arg(cashSessionId))) return rollback("Falha ao registrar a auditoria.");
+    if (!db.commit()) return fail(db.lastError().text());
+    refresh(); return true;
 }
 bool Finance::createExpense(const QString &description, const QString &amount, const QString &dueDate) {
     if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem lançar despesas.");

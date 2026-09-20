@@ -112,7 +112,7 @@ O painel apresenta faturamento do dia e do mês, vendas do dia, ticket médio di
 
 ## Financeiro
 
-A seção **Financeiro** permite lançar despesas a pagar com vencimento e baixá-las em uma sessão de caixa aberta. A baixa cria uma sangria de mesmo valor e é transacional, evitando despesa paga sem movimento correspondente. Contas a receber ainda estão pendentes.
+A seção **Financeiro** permite lançar despesas a pagar e contas a receber com vencimento. A baixa de despesas cria uma sangria e o recebimento cria um suprimento, ambos na sessão de caixa aberta e dentro da mesma transação que atualiza o título.
 
 Vendas consideradas: somente as concluídas, agrupadas pelo horário local do computador. Estoque crítico inclui produtos ativos com saldo menor ou igual ao mínimo; produtos sem estoque também entram nessa contagem. Sem vendas, o ticket médio é zero. Sem caixa aberto, o saldo é zero e o painel informa que não há sessão aberta.
 

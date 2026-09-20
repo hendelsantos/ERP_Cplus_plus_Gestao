@@ -163,7 +163,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 ### Etapa 4 — Financeiro e relatórios
 
 - [x] Despesas/contas a pagar com baixa transacional no caixa.
-- [ ] Contas a receber.
+- [x] Contas a receber com recebimento transacional no caixa.
 - [ ] Baixas e relação explícita com movimentos de caixa, evitando duplicidade.
 - [x] Filtro de vendas por período e relatórios CSV/PDF.
 - [ ] Indicadores financeiros baseados nos registros implementados.

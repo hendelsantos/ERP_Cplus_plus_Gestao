@@ -14,6 +14,13 @@ ColumnLayout {
         TextField { id: dueDate; placeholderText: "Vencimento AAAA-MM-DD"; Layout.preferredWidth: 170 }
         Button { text: "Lançar"; onClicked: { if (page.finance.createExpense(description.text, amount.text, dueDate.text)) { description.clear(); amount.clear(); dueDate.clear() } } }
     }
+    RowLayout {
+        Layout.fillWidth: true
+        TextField { id: receivableDescription; placeholderText: "Descrição do recebível"; Layout.fillWidth: true }
+        TextField { id: receivableAmount; placeholderText: "Valor"; Layout.preferredWidth: 120 }
+        TextField { id: receivableDueDate; placeholderText: "Vencimento AAAA-MM-DD"; Layout.preferredWidth: 170 }
+        Button { text: "Lançar recebível"; onClicked: { if (page.finance.createReceivable(receivableDescription.text, receivableAmount.text, receivableDueDate.text)) { receivableDescription.clear(); receivableAmount.clear(); receivableDueDate.clear() } } }
+    }
     Label { text: page.finance.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     RowLayout {
         Layout.fillWidth: true
@@ -47,6 +54,23 @@ ColumnLayout {
         }
         Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Nenhuma despesa encontrada." }
     }
+    Label { text: "Contas a receber"; font.bold: true; font.pixelSize: 20; Layout.fillWidth: true }
+    ListView {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 180
+        model: page.finance.receivables
+        clip: true
+        delegate: Rectangle {
+            required property var modelData
+            width: ListView.view.width; height: 62; color: "white"; radius: 6; border.color: "#e2e8e5"
+            RowLayout {
+                anchors.fill: parent; anchors.margins: 10
+                Label { text: modelData.description + "\n" + (modelData.customer_name || "Cliente não informado") + " • " + modelData.due_date; Layout.fillWidth: true; wrapMode: Text.Wrap }
+                Label { text: page.money(modelData.amount_cents) + "\n" + modelData.status; Layout.preferredWidth: 120 }
+                Button { visible: modelData.status === "open"; text: "Receber"; onClicked: receiveDialog.receivableId = modelData.id }
+            }
+        }
+    }
     Dialog {
         id: paymentDialog
         property int expenseId: 0
@@ -69,6 +93,22 @@ ColumnLayout {
                 onClicked: { if (page.finance.payExpense(paymentDialog.expenseId, Number(cashSession.text))) { paymentDialog.close(); cashSession.clear() } }
             }
             onRejected: paymentDialog.close()
+        }
+    }
+    Dialog {
+        id: receiveDialog
+        property int receivableId: 0
+        parent: Overlay.overlay; anchors.centerIn: parent; width: Math.min(500, parent.width - 32); modal: true
+        title: "Receber conta"
+        contentItem: ColumnLayout {
+            Label { text: "Informe o número da sessão de caixa aberta."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            TextField { id: receiveCashSession; placeholderText: "Sessão de caixa"; inputMethodHints: Qt.ImhDigitsOnly; Layout.fillWidth: true }
+            Label { text: page.finance.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { text: "Confirmar recebimento"; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole; onClicked: { if (page.finance.receiveReceivable(receiveDialog.receivableId, Number(receiveCashSession.text))) { receiveDialog.close(); receiveCashSession.clear() } } }
+            onRejected: receiveDialog.close()
         }
     }
 }

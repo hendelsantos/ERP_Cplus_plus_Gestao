@@ -44,6 +44,19 @@ private slots:
         QCOMPARE(scalar("SELECT status FROM expenses WHERE id=1").toString(), QString("open"));
         QCOMPARE(scalar("SELECT COUNT(*) FROM cash_movements").toInt(), 0);
     }
+    void receivableLifecycle() {
+        MHStore::Finance finance;
+        QVERIFY(finance.createReceivable("Venda fiada", "75,50", "2026-10-05"));
+        QCOMPARE(finance.receivables().size(), 1);
+        QVERIFY(!finance.createReceivable("Cliente inválido", "10", "2026-10-05", 999));
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO cash_sessions(opening_cents,opening_balance,status,operator_name,user_id) VALUES(1000,10,'open','Ana',1)"));
+        QVERIFY(finance.receiveReceivable(1, 1));
+        QCOMPARE(scalar("SELECT status FROM receivables WHERE id=1").toString(), QString("received"));
+        QCOMPARE(scalar("SELECT type FROM cash_movements WHERE cash_session_id=1").toString(), QString("supply"));
+        QCOMPARE(scalar("SELECT amount_cents FROM cash_movements WHERE cash_session_id=1").toInt(), 7550);
+        QVERIFY(!finance.receiveReceivable(1, 1));
+    }
 };
 QTEST_GUILESS_MAIN(FinanceTest)
 #include "finance_test.moc"
