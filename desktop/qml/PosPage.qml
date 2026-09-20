@@ -352,6 +352,11 @@ ColumnLayout {
         modal: true
         footer: DialogButtonBox {
             Button {
+                text: "Imprimir"
+                DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
+                onClicked: page.pos.printReceipt()
+            }
+            Button {
                 text: "Exportar PDF"
                 DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
                 onClicked: { receiptFile.text = ""; receiptExport.open() }

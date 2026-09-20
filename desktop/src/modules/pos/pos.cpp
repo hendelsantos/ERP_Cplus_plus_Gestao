@@ -17,6 +17,8 @@
 #include <QPdfWriter>
 #include <QPageSize>
 #include <QTemporaryFile>
+#include <QPrinter>
+#include <QPrinterInfo>
 
 namespace MHStore {
 namespace {
@@ -736,6 +738,33 @@ bool Pos::exportReceiptPdf(const QString &filePath)
         QFile::remove(temporaryPath);
         return fail("Não foi possível finalizar o comprovante PDF.");
     }
+    m_error.clear(); emit changed();
+    return true;
+}
+
+bool Pos::printReceipt()
+{
+    if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
+    if (m_receipt.isEmpty()) return fail("Finalize uma venda antes de imprimir o comprovante.");
+    const auto printerInfo = QPrinterInfo::defaultPrinter();
+    if (printerInfo.isNull() || printerInfo.printerName().isEmpty()) return fail("Nenhuma impressora padrão está configurada. Exporte o comprovante para PDF.");
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setPrinterName(printerInfo.printerName());
+    QPainter painter(&printer);
+    if (!painter.isActive()) return fail("Não foi possível iniciar a impressão. Exporte o comprovante para PDF.");
+    painter.setFont(QFont(QStringLiteral("monospace"), 10));
+    const auto lines = m_receipt.split('\n');
+    int y = 80;
+    const auto lineHeight = painter.fontMetrics().height() + 8;
+    for (const auto &line : lines) {
+        painter.drawText(80, y, line);
+        y += lineHeight;
+        if (y > printer.pageRect(QPrinter::DevicePixel).height() - lineHeight) {
+            printer.newPage();
+            y = 80;
+        }
+    }
+    painter.end();
     m_error.clear(); emit changed();
     return true;
 }

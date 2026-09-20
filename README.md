@@ -119,6 +119,7 @@ A seção **Financeiro** permite lançar despesas a pagar e contas a receber com
 No PDV, produtos com unidade como KG podem ser vendidos com quantidades de até três casas decimais. O total da linha é arredondado para centavos e o estoque mantém a quantidade fracionada.
 
 Após finalizar uma venda, o comprovante não fiscal pode ser exportado para PDF pelo diálogo de venda concluída.
+Se houver uma impressora padrão configurada, o mesmo diálogo oferece impressão física; sem impressora, o sistema mantém a exportação PDF disponível.
 
 Produtos podem registrar tamanho, cor e grupo de variação opcionais. Ao selecionar um produto agrupado no PDV, o sistema apresenta as variantes disponíveis e seus saldos antes de adicionar a escolhida ao carrinho.
 

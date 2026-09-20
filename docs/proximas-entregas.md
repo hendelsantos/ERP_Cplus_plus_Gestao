@@ -142,7 +142,7 @@ Concluir os recursos operacionais mais esperados em uma instalação de PDV offl
 
 ### Escopo
 
-- impressão física opcional do comprovante;
+- [x] impressão física opcional do comprovante;
 - configuração de impressora;
 - relatório financeiro por período;
 - conferência de vendas, caixa, despesas e recebíveis;

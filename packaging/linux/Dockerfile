@@ -2,7 +2,7 @@
 FROM ubuntu:24.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake ninja-build dpkg-dev libssl-dev qt6-base-dev qt6-declarative-dev \
+    build-essential cmake ninja-build dpkg-dev file libssl-dev qt6-base-dev qt6-declarative-dev \
     libqt6sql6-sqlite qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript \
     qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
     qml6-module-qtquick-templates qml6-module-qtquick-window \
