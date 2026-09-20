@@ -324,3 +324,14 @@ Entrega de 20/09/2026:
 Validação: compilação concluída. Na execução completa, estoque, PDV, backup e interface passaram; o teste novo de cadastros detectou a comparação de nulos. Após a correção e melhoria dos rótulos, **cadastros e interface foram executados novamente e passaram (2/2)**. Os cinco conjuntos ficaram validados. Testes cobrem quatro tipos de cadastro, rollback, repetição sem mudanças, persistência, usuário, privacidade dos detalhes e bloqueio do operador. Interface conferida em 960 × 640, sem avisos QML; somente bancos temporários utilizados.
 
 Item marcado [x] no roteiro e Etapa 2 concluída. Próxima entrega: descontos e acréscimos no PDV (Etapa 3).
+
+
+## Continuação — descontos e acréscimos no PDV (Etapa 3)
+
+- Ajustes em reais por venda, com duas casas decimais, justificativa de até 200 caracteres e total positivo dentro do limite existente.
+- Permissão central `pos.adjust`, exclusiva de administrador nesta versão, verificada ao aplicar e finalizar.
+- Subtotal preserva os itens; desconto e acréscimo compõem o total pago. Troco, caixa e indicadores usam o total final.
+- Alterar itens remove os ajustes; falhas de finalização preservam o carrinho. Finalizar ou limpar remove ajustes e justificativa.
+- Auditoria `sale.adjust` na mesma transação de venda, itens, pagamento e estoque; falha de auditoria desfaz toda a venda.
+- Migração 10 preenche o subtotal histórico a partir do total e mantém ajustes antigos zerados. Restauração direta passa a exigir esquema idêntico e versão 10.
+- UI de aplicação dos ajustes, resumo e detalhes persistidos. Percentuais, ajuste por item e rateio para devoluções permanecem fora desta entrega.

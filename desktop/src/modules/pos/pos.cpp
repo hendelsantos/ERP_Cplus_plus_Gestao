@@ -1,6 +1,7 @@
 #include "../../core/auth/auth.h"
 #include "../../core/settings/settings.h"
 #include "pos.h"
+#include "../../core/audit/audit.h"
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -54,11 +55,23 @@ public:
 }
 Pos::Pos(QObject *parent) : QObject(parent) { refresh(); }
 bool Pos::fail(const QString &message) { m_error = message; emit changed(); return false; }
-qint64 Pos::total() const
+qint64 Pos::subtotal() const
 {
     qint64 result = 0;
     for (const auto &item : m_cart) result += item.toMap().value("total_cents").toLongLong();
     return result;
+}
+bool Pos::setAdjustments(const QString &discount,const QString &surcharge,const QString &reason) {
+    if (!Auth::allowed("pos.adjust") || !Settings::enabled("pos")) return fail("Sem permissão para ajustar a venda.");
+    qint64 decrease=0,increase=0;
+    if (!money(discount,decrease) || !money(surcharge,increase)) return fail("Informe valores não negativos com até duas casas decimais.");
+    if (m_cart.isEmpty() || decrease>=subtotal() || subtotal()-decrease+increase>limit)
+        return fail("O desconto deve ser menor que o subtotal e o total deve respeitar o limite da venda.");
+    const auto why=reason.trimmed();
+    if ((decrease || increase) && (why.isEmpty() || why.size()>200)) return fail("Informe uma justificativa com até 200 caracteres.");
+    m_discount=decrease; m_surcharge=increase;
+    m_adjustmentReason=(decrease || increase)?why:QString();
+    m_error.clear(); emit changed(); return true;
 }
 void Pos::refresh(const QString &search)
 {
@@ -222,7 +235,8 @@ bool Pos::add(int productId)
     const qint64 price = q.value(3).toLongLong();
     if (price <= 0 || price > limit) return fail("Informe um preço de venda maior que zero no cadastro.");
     if (q.value(4).toDouble() < 1) return fail("Estoque insuficiente.");
-    if (total() + price > limit) return fail("Valor da venda acima do limite.");
+    if (subtotal() + price > limit) return fail("Valor da venda acima do limite.");
+    resetAdjustments();
     m_cart.append(QVariantMap{{"id",productId},{"code",q.value(1)},{"name",q.value(2)},
         {"unit_price_cents",price},{"quantity",1},{"total_cents",price}});
     m_error.clear(); emit changed(); return true;
@@ -235,20 +249,21 @@ bool Pos::setQuantity(int productId, int quantity)
     for (qsizetype i = 0; i < m_cart.size(); ++i) {
         auto row = m_cart[i].toMap();
         if (row.value("id").toInt() != productId) continue;
-        if (quantity == 0) { m_cart.removeAt(i); m_error.clear(); emit changed(); return true; }
+        if (quantity == 0) { resetAdjustments(); m_cart.removeAt(i); m_error.clear(); emit changed(); return true; }
         QSqlQuery q;
         q.prepare("SELECT stock_quantity FROM products WHERE id = ? AND active = 1");
         q.addBindValue(productId);
         if (!q.exec()) return fail(q.lastError().text());
         if (!q.next() || q.value(0).toDouble() < quantity) return fail("Produto inativo ou estoque insuficiente.");
         const auto line = row.value("unit_price_cents").toLongLong() * quantity;
-        if (total() - row.value("total_cents").toLongLong() + line > limit) return fail("Valor da venda acima do limite.");
+        if (subtotal() - row.value("total_cents").toLongLong() + line > limit) return fail("Valor da venda acima do limite.");
+        if (quantity!=row.value("quantity").toInt()) resetAdjustments();
         row["quantity"] = quantity; row["total_cents"] = line; m_cart[i] = row;
         m_error.clear(); emit changed(); return true;
     }
     return fail("Item não encontrado no carrinho.");
 }
-void Pos::clearCart() { m_cart.clear(); m_error.clear(); emit changed(); }
+void Pos::clearCart() { resetAdjustments(); m_cart.clear(); m_error.clear(); emit changed(); }
 bool Pos::openCash(const QString &amount, const QString & /*operatorName*/)
 {
     const QString operatorName = Auth::operatorName();
@@ -343,7 +358,9 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     if (m_cart.isEmpty()) return fail("Adicione produtos ao carrinho.");
     if (operatorName.trimmed().isEmpty()) return fail("Informe o responsável pela venda.");
     if (!QStringList{"cash","pix","credit","debit","other"}.contains(method)) return fail("Forma de pagamento inválida.");
+    if ((m_discount || m_surcharge) && !Auth::allowed("pos.adjust")) return fail("Sem permissão para finalizar uma venda com ajustes.");
     const qint64 amount = total();
+    if (amount<=0 || amount>limit || m_discount>=subtotal()) return fail("Revise os ajustes da venda.");
     qint64 received = amount;
     if (method == "cash" && (!money(tendered,received) || received < amount)) return fail("Dinheiro recebido insuficiente ou inválido.");
     Transaction tx;
@@ -363,10 +380,12 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
         customerName = q.value(0).toString();
         q.finish();
     }
-    q.prepare("INSERT INTO sales(cash_session_id,total_amount,total_cents,operator_name,customer_id,user_id) VALUES(?,?,?,?,?,?)");
+    q.prepare("INSERT INTO sales(cash_session_id,total_amount,total_cents,operator_name,customer_id,user_id,subtotal_cents,discount_cents,surcharge_cents,adjustment_reason) VALUES(?,?,?,?,?,?,?,?,?,?)");
     q.addBindValue(sessionId); q.addBindValue(amount/100.0); q.addBindValue(amount); q.addBindValue(operatorName.trimmed());
     q.addBindValue(customerId > 0 ? QVariant(customerId) : QVariant());
     q.addBindValue(Auth::userId());
+    q.addBindValue(subtotal()); q.addBindValue(m_discount); q.addBindValue(m_surcharge);
+    q.addBindValue(m_adjustmentReason.isEmpty()?QStringLiteral(""):m_adjustmentReason);
     if (!q.exec()) return fail(q.lastError().text());
     const auto saleId = q.lastInsertId().toLongLong();
     QString receipt = QString("Venda #%1\nCliente: %2\n").arg(saleId).arg(customerId > 0 ? customerName : QStringLiteral("Consumidor não identificado"));
@@ -392,8 +411,14 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     q.prepare("INSERT INTO payments(sale_id,method,amount_cents,tendered_cents,change_cents) VALUES(?,?,?,?,?)");
     for (const auto &value : QVariantList{saleId,method,amount,received,received-amount}) q.addBindValue(value);
     if (!q.exec()) return fail(q.lastError().text());
+    if ((m_discount || m_surcharge) && !Audit::record("sale.adjust", "Venda #"+QString::number(saleId),
+        QString("Subtotal: %1; desconto: %2; acréscimo: %3; total: %4; motivo: %5")
+            .arg(currency(subtotal()),currency(m_discount),currency(m_surcharge),currency(amount),m_adjustmentReason)))
+        return fail("Falha ao registrar a auditoria dos ajustes.");
     if (!tx.commit()) return fail(tx.db.lastError().text());
+    if (m_discount || m_surcharge) receipt += QString("Subtotal: %1\nDesconto: %2\nAcréscimo: %3\nMotivo: %4\n")
+        .arg(currency(subtotal()),currency(m_discount),currency(m_surcharge),m_adjustmentReason);
     m_receipt = receipt + QString("Total: %1\nTroco: %2").arg(currency(amount),currency(received-amount));
-    m_cart.clear(); refresh(m_search); return true;
+    resetAdjustments(); m_cart.clear(); refresh(m_search); return true;
 }
 }

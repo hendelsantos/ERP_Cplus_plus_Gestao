@@ -160,6 +160,53 @@ ColumnLayout {
     RowLayout {
         visible: !page.cashMode
         Layout.fillWidth: true
+        Button {
+            text: "Desconto / acréscimo"
+            enabled: authStore.user.role === "admin" && page.pos.cart.length > 0
+            onClicked: {
+                adjustmentDiscount.text = String(page.pos.discount/100)
+                adjustmentSurcharge.text = String(page.pos.surcharge/100)
+                adjustmentReason.text = page.pos.adjustmentReason
+                adjustmentError.text = ""
+                adjustments.open()
+            }
+        }
+        Label {
+            visible: page.pos.discount > 0 || page.pos.surcharge > 0
+            text: "Subtotal: " + page.money(page.pos.subtotal) + " • Desconto: " + page.money(page.pos.discount) + " • Acréscimo: " + page.money(page.pos.surcharge)
+            Layout.fillWidth: true; wrapMode: Text.Wrap
+        }
+    }
+    Dialog {
+        id: adjustments
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(520,parent.width-32)
+        modal: true
+        title: "Ajustes da venda"
+        contentItem: ColumnLayout {
+            Label { text: "Valores em reais sobre a venda. Alterar o carrinho remove os ajustes. Use zero em ambos para remover."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { text: "Desconto (R$)" }
+            TextField { id: adjustmentDiscount; objectName: "saleDiscount"; Layout.fillWidth: true }
+            Label { text: "Acréscimo (R$)" }
+            TextField { id: adjustmentSurcharge; objectName: "saleSurcharge"; Layout.fillWidth: true }
+            TextField { id: adjustmentReason; objectName: "saleAdjustmentReason"; placeholderText: "Justificativa obrigatória"; maximumLength: 200; Layout.fillWidth: true }
+            Label { id: adjustmentError; Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#b42318" }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar ajuste"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { text: "Aplicar ajuste"; DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
+                onClicked: {
+                    if (page.pos.setAdjustments(adjustmentDiscount.text,adjustmentSurcharge.text,adjustmentReason.text)) adjustments.close()
+                    else adjustmentError.text = page.pos.error
+                }
+            }
+            onRejected: adjustments.close()
+        }
+    }
+    RowLayout {
+        visible: !page.cashMode
+        Layout.fillWidth: true
         Label { text: "Total: " + page.money(page.pos.total); font.bold: true; font.pixelSize: 22; Layout.fillWidth: true }
         ComboBox { id: method; model: ["Dinheiro","PIX","Crédito","Débito","Outros"] }
         TextField { id: received; objectName: "posReceived"; visible: method.currentIndex === 0; Layout.preferredWidth: 120; placeholderText: "Recebido" }

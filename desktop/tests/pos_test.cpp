@@ -189,9 +189,71 @@ private slots:
         QVERIFY(auth.recover("bia",persisted,"SenhaPersiste123!"));
         QVERIFY(auth.login("bia","SenhaPersiste123!"));
     }
+    void saleAdjustments() {
+        MHStore::Pos pos;
+        QVERIFY(!pos.setAdjustments("1","0","Teste"));
+        QVERIFY(pos.openCash("10",""));
+        const auto session=pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(!pos.setAdjustments("19,90","0","Integral"));
+        QVERIFY(!pos.setAdjustments("-1","0","Inválido"));
+        QVERIFY(!pos.setAdjustments("1.001","0","Inválido"));
+        QVERIFY(!pos.setAdjustments("0","1000000000","Limite"));
+        QVERIFY(!pos.setAdjustments("1","0",""));
+        QVERIFY(!pos.setAdjustments("1","0",QString(201,'x')));
+        QVERIFY(pos.setAdjustments("2,00","0,50","Negociação"));
+        QCOMPARE(pos.subtotal(),1990); QCOMPARE(pos.total(),1840);
+        QVERIFY(pos.setQuantity(1,1)); QCOMPARE(pos.discount(),200);
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE users SET role='operator' WHERE id=1"));
+        QVERIFY(!pos.setAdjustments("1","0","Negado"));
+        QVERIFY(!pos.checkout(session,"pix","",""));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+        QVERIFY(q.exec("UPDATE users SET role='admin' WHERE id=1"));
+        QVERIFY(q.exec("CREATE TEMP TRIGGER reject_adjust_audit BEFORE INSERT ON audit_log WHEN NEW.action='sale.adjust' BEGIN SELECT RAISE(ABORT,'audit failure'); END"));
+        QVERIFY(!pos.checkout(session,"cash","20",""));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),10);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM payments").toInt(),0);
+        QCOMPARE(pos.total(),1840);
+        QVERIFY(q.exec("DROP TRIGGER reject_adjust_audit"));
+        QVERIFY(pos.checkout(session,"cash","20",""));
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),2840);
+        QCOMPARE(scalar("SELECT amount_cents FROM payments").toInt(),1840);
+        QCOMPARE(scalar("SELECT change_cents FROM payments").toInt(),160);
+        QCOMPARE(scalar("SELECT SUM(total_cents) FROM sale_items").toInt(),1990);
+        QCOMPARE(scalar("SELECT user_id FROM audit_log WHERE action='sale.adjust'").toInt(),1);
+        QCOMPARE(pos.discount(),0); QCOMPARE(pos.surcharge(),0);
+        QVERIFY(pos.receipt().contains("Negociação"));
+        QSqlDatabase::database().close(); QVERIFY(QSqlDatabase::database().open());
+        MHStore::Pos reopened; QVERIFY(reopened.loadSale(1));
+        QCOMPARE(reopened.selectedSale().value("subtotal_cents").toInt(),1990);
+        QCOMPARE(reopened.selectedSale().value("discount_cents").toInt(),200);
+        QCOMPARE(reopened.selectedSale().value("surcharge_cents").toInt(),50);
+        reopened.refreshDashboard(); QCOMPARE(reopened.dashboard().value("today_cents").toInt(),1840);
+        QVERIFY(reopened.add(2));
+        QVERIFY(reopened.setAdjustments("0.01","0","Teste"));
+        QVERIFY(reopened.add(2)); QCOMPARE(reopened.discount(),0);
+        QVERIFY(reopened.setAdjustments("0","0.05","Taxa"));
+        reopened.clearCart(); QCOMPARE(reopened.surcharge(),0);
+        QVERIFY(reopened.add(2)); QVERIFY(reopened.setAdjustments("0","0.05","Taxa"));
+        QVERIFY(reopened.checkout(session,"pix","",""));
+        QCOMPARE(reopened.cash().value("cash_expected").toInt(),2840);
+        QCOMPARE(scalar("SELECT total_cents FROM sales WHERE id=2").toInt(),15);
+    }
+    void adjustmentMigration() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO sales(total_amount,total_cents) VALUES(12.34,1234)"));
+        QVERIFY(removeAdjustmentMigration());
+        MHStore::Database::DatabaseManager db;
+        QVERIFY(db.initialize(nullptr,path)); QVERIFY(db.initialize(nullptr,path));
+        QCOMPARE(scalar("SELECT subtotal_cents FROM sales").toInt(),1234);
+        QCOMPARE(scalar("SELECT discount_cents FROM sales").toInt(),0);
+        QCOMPARE(scalar("SELECT total_cents FROM sales").toInt(),1234);
+    }
     void permissionMatrix() {
         const auto matrix=MHStore::Auth::permissions();
-        QCOMPARE(matrix.size(),9);
+        QCOMPARE(matrix.size(),10);
         QStringList ids;
         for (const auto &p : matrix) { QVERIFY(!p.id.isEmpty()); QVERIFY(!p.description.isEmpty()); QVERIFY(p.admin); ids << p.id; }
         for (const auto &id : QStringList{"read","catalog","inventory","cash","pos","settings","backup","users","audit"}) QVERIFY(ids.contains(id));
@@ -498,7 +560,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),9);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),10);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }

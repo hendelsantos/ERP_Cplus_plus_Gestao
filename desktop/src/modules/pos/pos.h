@@ -23,6 +23,10 @@ class Pos : public QObject
     Q_PROPERTY(QVariantMap cash READ cash NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString receipt READ receipt NOTIFY changed)
+    Q_PROPERTY(qint64 subtotal READ subtotal NOTIFY changed)
+    Q_PROPERTY(qint64 discount READ discount NOTIFY changed)
+    Q_PROPERTY(qint64 surcharge READ surcharge NOTIFY changed)
+    Q_PROPERTY(QString adjustmentReason READ adjustmentReason NOTIFY changed)
     Q_PROPERTY(qint64 total READ total NOTIFY changed)
 public:
     explicit Pos(QObject *parent = nullptr);
@@ -46,7 +50,12 @@ public:
     QVariantMap cash() const { return m_cash; }
     QString error() const { return m_error; }
     QString receipt() const { return m_receipt; }
-    qint64 total() const;
+    qint64 subtotal() const;
+    qint64 total() const { return subtotal()-m_discount+m_surcharge; }
+    qint64 discount() const { return m_discount; }
+    qint64 surcharge() const { return m_surcharge; }
+    QString adjustmentReason() const { return m_adjustmentReason; }
+    Q_INVOKABLE bool setAdjustments(const QString &discount,const QString &surcharge,const QString &reason);
     Q_INVOKABLE void refresh(const QString &search = {});
     Q_INVOKABLE bool add(int productId);
     Q_INVOKABLE bool setQuantity(int productId, int quantity);
@@ -64,6 +73,9 @@ signals:
     void dashboardChanged();
 private:
     bool fail(const QString &message);
+    void resetAdjustments() { m_discount=0; m_surcharge=0; m_adjustmentReason.clear(); }
+    qint64 m_discount=0, m_surcharge=0;
+    QString m_adjustmentReason;
     QVariantMap m_dashboard;
     QString m_dashboardError;
     QVariantList m_sales, m_saleItems, m_customers;

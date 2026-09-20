@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 9) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 10) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -128,6 +128,13 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("ALTER TABLE products ADD COLUMN location TEXT NOT NULL DEFAULT ''"),
         QStringLiteral("ALTER TABLE products ADD COLUMN notes TEXT NOT NULL DEFAULT ''"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (9)")
+    }, {
+        QStringLiteral("ALTER TABLE sales ADD COLUMN subtotal_cents INTEGER NOT NULL DEFAULT 0"),
+        QStringLiteral("ALTER TABLE sales ADD COLUMN discount_cents INTEGER NOT NULL DEFAULT 0 CHECK(discount_cents>=0)"),
+        QStringLiteral("ALTER TABLE sales ADD COLUMN surcharge_cents INTEGER NOT NULL DEFAULT 0 CHECK(surcharge_cents>=0)"),
+        QStringLiteral("ALTER TABLE sales ADD COLUMN adjustment_reason TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("UPDATE sales SET subtotal_cents=total_cents"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (10)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

@@ -122,7 +122,7 @@ private slots:
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Minha empresa"));
         QVERIFY(!backup.restore(saved));
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
-        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),9);
+        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),10);
     }
     void complementaryBackupCompatibility() {
         QSqlQuery q;
@@ -143,6 +143,24 @@ private slots:
         MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
         QVERIFY(!backup.restore(old));
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
+    }
+    void adjustmentBackupCompatibility() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO sales(total_amount,total_cents,subtotal_cents,discount_cents,surcharge_cents,adjustment_reason) VALUES(9.5,950,1000,100,50,'Teste')"));
+        MHStore::Backup backup;
+        const auto folder=directory.filePath(QUuid::createUuid().toString());
+        QVERIFY(backup.create(folder));
+        const auto saved=backup.files().first().toMap().value("path").toString();
+        QVERIFY(q.exec("DELETE FROM sales"));
+        QVERIFY(backup.restore(saved)); QVERIFY(authenticateTestAdmin());
+        QCOMPARE(scalar("SELECT discount_cents FROM sales").toInt(),100);
+        QCOMPARE(scalar("SELECT adjustment_reason FROM sales").toString(),QString("Teste"));
+        QVERIFY(removeAdjustmentMigration());
+        const auto old=directory.filePath("version9.mhb");
+        q.prepare("VACUUM INTO ?"); q.addBindValue(old); QVERIFY(q.exec());
+        MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(!backup.restore(old));
+        QCOMPARE(scalar("SELECT total_cents FROM sales").toInt(),950);
     }
     void incompatibleSchema() {
         MHStore::Backup backup;

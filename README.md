@@ -83,7 +83,7 @@ A busca aceita nome, código interno ou código de barras. Enter adiciona o prod
 
 Preços do PDV, totais, pagamentos e conferência de caixa usam centavos inteiros. A migração converte os valores existentes; os campos REAL antigos são mantidos como espelho para compatibilidade com os cadastros. Mudanças de preço, inativação ou falta de estoque após adicionar ao carrinho impedem a finalização e solicitam revisão.
 
-Ainda faltam descontos/acréscimos, venda fracionada, pagamentos divididos, cancelamento/devolução e impressão/exportação do comprovante. O carrinho e o resumo da última venda ficam em memória; as vendas finalizadas permanecem no SQLite. O resumo na tela não é documento fiscal.
+Ainda faltam ajustes percentuais, venda fracionada, pagamentos divididos, cancelamento/devolução e impressão/exportação do comprovante. O carrinho e o resumo da última venda ficam em memória; as vendas finalizadas permanecem no SQLite. O resumo na tela não é documento fiscal.
 
 
 ## Suprimento e sangria
@@ -127,7 +127,7 @@ Para restaurar:
 4. O sistema verifica integridade, vínculos e compatibilidade, cria uma cópia `antes_restauracao_*.mhb` na subpasta `backups` do diretório de dados e restaura em transação.
 5. Após o sucesso, o aplicativo fecha. Abra novamente com `./scripts/dev.sh run`.
 
-Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **9**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
+Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **10**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
 
 Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Agendamento automático, compactação, backup em nuvem e migração automática de backups antigos seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
 
@@ -158,7 +158,7 @@ Abra **Configurações → Empresa e módulos** para salvar o nome da empresa, p
 
 O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos é separada das permissões dos usuários. Autenticação local já está disponível; licenciamento permanece pendente.
 
-A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 9; backups das versões 4 a 7 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
+A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 10; backups das versões 4 a 7 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
 
 
 O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Veja a versão atual do esquema e a compatibilidade na seção de backup.
@@ -186,7 +186,7 @@ As permissões são verificadas no C++. Após cinco tentativas inválidas, a con
 
 **Auditoria**, no menu lateral do administrador, lista as alterações administrativas no momento em que ocorreram: usuários criados/alterados, senhas trocadas, códigos de recuperação emitidos, configurações de empresa/módulos e alterações de cadastros. Cada registro mostra o responsável, o alvo, os detalhes e o horário local; senhas e códigos nunca são gravados. A listagem é paginada e a consulta é restrita a administradores.
 
-A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos; a **9**, campos complementares. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 9 não têm restauração direta.
+A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos; a **9**, campos complementares. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 10 não têm restauração direta.
 
 Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iterações via OpenSSL. O código de recuperação tem 256 bits aleatórios e somente seu hash é persistido. Detalhes e limites: [autenticação local](docs/autenticacao.md).
 
@@ -199,7 +199,7 @@ Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iteraç�
 
 Todos esses campos são opcionais. O estoque máximo é informativo, sem bloquear entradas ou gerar alertas; a unidade também é informativa e não habilita venda fracionada. Documento e telefone são textos informativos, sem validação fiscal ou integração externa.
 
-A migração **9** preserva os registros existentes e inicia os campos novos vazios, com máximo zero. O backup inclui esses dados. Restauração direta exige esquema idêntico na versão 9; backups até a versão 8 são rejeitados sem alterar o banco atual. Para arquivos antigos, permanece o procedimento de recuperação na versão anterior em ambiente separado e posterior atualização do banco.
+A migração **9** preserva os registros existentes e inicia os campos novos vazios, com máximo zero. O backup inclui esses dados. Restauração direta exige esquema idêntico na versão 10; backups até a versão 9 são rejeitados sem alterar o banco atual. Para arquivos antigos, permanece o procedimento de recuperação na versão anterior em ambiente separado e posterior atualização do banco.
 
 
 ## Auditoria dos cadastros
@@ -208,4 +208,15 @@ Em **Auditoria**, administradores consultam criações, alterações, inativaç�
 
 Alteração e auditoria são gravadas juntas: se o registro de auditoria falhar, o cadastro permanece como estava. Salvar valores idênticos ou repetir o status atual não gera evento. Tentativas inválidas ou sem permissão também não geram eventos de alteração concluída. O histórico começa com as novas operações; não há reconstrução retroativa de mudanças anteriores.
 
-Esta entrega reutiliza `audit_log` e mantém banco e compatibilidade de backups no **esquema 9**. Não há edição/exclusão de eventos pela interface. O histórico não substitui backup nem oferece proteção contra edição direta do SQLite fora do aplicativo.
+Esta entrega reutiliza `audit_log` e não exigiu migração própria. Veja a versão atual do esquema na seção de backup. Não há edição/exclusão de eventos pela interface. O histórico não substitui backup nem oferece proteção contra edição direta do SQLite fora do aplicativo.
+
+
+## Descontos e acréscimos no PDV
+
+Com produtos no carrinho, um administrador pode abrir **Desconto / acréscimo**, informar valores em reais e uma justificativa de até 200 caracteres e clicar em **Aplicar ajuste**. O desconto deve ser menor que o subtotal; valores negativos, mais de duas casas decimais e total acima do limite da venda são rejeitados. Ambos os ajustes podem ser usados na mesma venda. Para remover, aplique zero nos dois campos.
+
+O PDV mostra subtotal, ajustes e total final. O pagamento, o troco, o caixa e os indicadores usam o total final; os itens preservam preços e totais anteriores ao ajuste. Adicionar, remover ou mudar a quantidade de itens limpa os ajustes para exigir nova revisão. Limpar o carrinho ou concluir a venda também os remove. Falha de finalização mantém o carrinho e os ajustes.
+
+A permissão `pos.adjust` está disponível somente ao administrador na matriz atual e é revalidada na finalização. O ajuste concluído gera auditoria junto da venda, pagamento e baixa de estoque; qualquer falha desfaz a transação. Resumo e detalhes da venda exibem os ajustes e a justificativa. PIX/cartões continuam registros manuais.
+
+A migração **10** acrescenta subtotal, desconto, acréscimo e justificativa. Vendas antigas recebem subtotal igual ao total existente e ajustes zero, sem inventar histórico. Backups atuais incluem esses campos; restauração direta exige esquema idêntico na versão 10. Ajustes percentuais, ajustes por item e rateio para devoluções não estão implementados.

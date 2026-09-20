@@ -268,6 +268,12 @@ private slots:
             QCOMPARE(customerChoice->property("currentValue").toInt(),1);
             QVERIFY(click("CAM-01 — Camiseta"));
             QCOMPARE(pos.cart().size(),1);
+            QVERIFY(click("Desconto / acréscimo"));
+            QVERIFY(fill("saleDiscount", "1,00"));
+            QVERIFY(fill("saleSurcharge", "1,00"));
+            QVERIFY(fill("saleAdjustmentReason", "Teste de ajuste"));
+            QVERIFY(click("Aplicar ajuste"));
+            QCOMPARE(pos.discount(),100); QCOMPARE(pos.surcharge(),100);
             QVERIFY(fill("posReceived", "20,00"));
             if (!screenshotDirectory.isEmpty()) window->grabWindow().save(screenshotDirectory + "/pos.png");
             QVERIFY(click("Finalizar venda"));
@@ -306,6 +312,7 @@ private slots:
             QCOMPARE(pos.saleItems().size(),1);
             QCOMPARE(pos.selectedSale().value("customer_id").toInt(),1);
             QCOMPARE(pos.selectedSale().value("total_cents").toInt(),1990);
+            QCOMPARE(pos.selectedSale().value("discount_cents").toInt(),100);
             if (!screenshotDirectory.isEmpty()) window->grabWindow().save(screenshotDirectory + "/sale-details.png");
             QVERIFY(click("Fechar detalhes"));
             QVERIFY(click("Clientes"));

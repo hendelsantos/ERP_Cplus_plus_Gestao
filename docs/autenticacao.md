@@ -47,3 +47,5 @@ O esquema 7 acrescenta a auditoria administrativa. Recuperação de backup encer
 - Relógio local controla bloqueio temporário. Um backup antigo pode restaurar senhas/códigos e contadores antigos; proteja os arquivos.
 - Permissões customizáveis e auditoria de cadastros (produtos, clientes, estoque) ainda pendentes.
 - OpenSSL deve acompanhar o pacote Windows; instalação e renderização em Windows ainda precisam ser validadas.
+
+A permissão `pos.adjust` autoriza aplicar e finalizar vendas com desconto/acréscimo. Apenas administradores a possuem na matriz atual; operadores continuam autorizados a vendas sem ajustes.

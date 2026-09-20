@@ -116,6 +116,14 @@ ColumnLayout {
                 }
                 Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Itens não disponíveis neste registro antigo." }
             }
+            Label {
+                visible: !!page.pos.selectedSale.discount_cents || !!page.pos.selectedSale.surcharge_cents
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: "Subtotal: " + page.money(page.pos.selectedSale.subtotal_cents)
+                    + " • Desconto: " + page.money(page.pos.selectedSale.discount_cents)
+                    + " • Acréscimo: " + page.money(page.pos.selectedSale.surcharge_cents)
+                    + "\nMotivo: " + (page.pos.selectedSale.adjustment_reason || "")
+            }
             Label { text: "Total: " + page.money(page.pos.selectedSale.total_cents); font.bold: true; font.pixelSize: 20 }
             Label {
                 Layout.fillWidth: true

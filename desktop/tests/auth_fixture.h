@@ -7,7 +7,14 @@ inline bool authenticateTestAdmin() {
     if (auth.needsSetup() && !auth.setup("Ana","admin","SenhaTeste123!")) return false;
     return auth.login("admin","SenhaTeste123!");
 }
+inline bool removeAdjustmentMigration() {
+    QSqlQuery q;
+    for (const auto &column : {"subtotal_cents","discount_cents","surcharge_cents","adjustment_reason"})
+        if (!q.exec(QString("ALTER TABLE sales DROP COLUMN %1").arg(column))) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version=10");
+}
 inline bool removeComplementaryMigration() {
+    if (!removeAdjustmentMigration()) return false;
     QSqlQuery q;
     for (const auto &column : {"brand","unit","maximum_stock","location","notes"})
         if (!q.exec(QString("ALTER TABLE products DROP COLUMN %1").arg(column))) return false;

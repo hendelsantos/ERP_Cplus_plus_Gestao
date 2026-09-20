@@ -61,6 +61,7 @@ const QList<Auth::PermissionInfo> &Auth::permissions() {
         {"inventory","Movimentar estoque manualmente: entrada, saída e ajuste",true,false},
         {"cash","Abrir e fechar caixa, registrar suprimento e sangria",true,true},
         {"pos","Operar o PDV e finalizar vendas",true,true},
+        {"pos.adjust","Aplicar descontos e acréscimos em vendas",true,false},
         {"settings","Configurar empresa e habilitar módulos",true,false},
         {"backup","Criar e restaurar backups locais",true,false},
         {"users","Gerenciar usuários e emitir código de recuperação",true,false},
