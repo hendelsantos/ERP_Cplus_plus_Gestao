@@ -135,6 +135,15 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("ALTER TABLE sales ADD COLUMN adjustment_reason TEXT NOT NULL DEFAULT ''"),
         QStringLiteral("UPDATE sales SET subtotal_cents=total_cents"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (10)")
+    }, {
+        QStringLiteral("CREATE TABLE payment_items (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL REFERENCES sales(id), method TEXT NOT NULL CHECK(method IN ('cash','pix','credit','debit','other')), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), tendered_cents INTEGER NOT NULL DEFAULT 0 CHECK(tendered_cents >= 0), change_cents INTEGER NOT NULL DEFAULT 0 CHECK(change_cents >= 0), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+        QStringLiteral("CREATE INDEX payment_items_sale ON payment_items(sale_id, id DESC)"),
+        QStringLiteral("CREATE TABLE payments_new (id INTEGER PRIMARY KEY, sale_id INTEGER NOT NULL UNIQUE REFERENCES sales(id), method TEXT NOT NULL CHECK(method IN ('cash','pix','credit','debit','other','split')), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), tendered_cents INTEGER NOT NULL, change_cents INTEGER NOT NULL CHECK(change_cents >= 0))"),
+        QStringLiteral("INSERT INTO payments_new(id, sale_id, method, amount_cents, tendered_cents, change_cents) SELECT id, sale_id, method, amount_cents, tendered_cents, change_cents FROM payments"),
+        QStringLiteral("DROP TABLE payments"),
+        QStringLiteral("ALTER TABLE payments_new RENAME TO payments"),
+        QStringLiteral("INSERT INTO payment_items(sale_id, method, amount_cents, tendered_cents, change_cents) SELECT sale_id, method, amount_cents, tendered_cents, change_cents FROM payments"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (11)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

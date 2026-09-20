@@ -26,9 +26,12 @@ bool money(QString input, qint64 &cents)
 // Shared by the display, withdrawal validation and closing snapshot. Alias c is a cash session.
 QString cashBalanceExpression()
 {
-    return QStringLiteral("c.opening_cents + COALESCE((SELECT SUM(p.amount_cents) "
+    return QStringLiteral("c.opening_cents + COALESCE((SELECT SUM(pi.amount_cents) "
+        "FROM payment_items pi JOIN sales s ON s.id=pi.sale_id WHERE s.cash_session_id=c.id "
+        "AND s.status='completed' AND pi.method='cash'),0) + "
+        "COALESCE((SELECT SUM(CASE WHEN p.method='cash' THEN p.amount_cents ELSE 0 END) "
         "FROM payments p JOIN sales s ON s.id=p.sale_id WHERE s.cash_session_id=c.id "
-        "AND s.status='completed' AND p.method='cash'),0) + COALESCE((SELECT SUM("
+        "AND s.status='completed'),0) + COALESCE((SELECT SUM("
         "CASE WHEN m.type='supply' THEN m.amount_cents ELSE -m.amount_cents END) "
         "FROM cash_movements m WHERE m.cash_session_id=c.id),0)");
 }
@@ -357,12 +360,34 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
     if (m_cart.isEmpty()) return fail("Adicione produtos ao carrinho.");
     if (operatorName.trimmed().isEmpty()) return fail("Informe o responsável pela venda.");
-    if (!QStringList{"cash","pix","credit","debit","other"}.contains(method)) return fail("Forma de pagamento inválida.");
     if ((m_discount || m_surcharge) && !Auth::allowed("pos.adjust")) return fail("Sem permissão para finalizar uma venda com ajustes.");
     const qint64 amount = total();
     if (amount<=0 || amount>limit || m_discount>=subtotal()) return fail("Revise os ajustes da venda.");
-    qint64 received = amount;
-    if (method == "cash" && (!money(tendered,received) || received < amount)) return fail("Dinheiro recebido insuficiente ou inválido.");
+
+    QStringList methods;
+    QList<qint64> parts;
+    const QString normalizedMethod = method.trimmed();
+    if (normalizedMethod.contains('|')) {
+        methods = normalizedMethod.split('|', Qt::SkipEmptyParts);
+        const auto rawParts = tendered.split('|', Qt::SkipEmptyParts);
+        if (methods.size() != rawParts.size()) return fail("Informe um valor para cada forma de pagamento em um pagamento dividido.");
+        for (int i = 0; i < methods.size(); ++i) {
+            const auto parsed = methods[i].trimmed();
+            if (!QStringList{"cash","pix","credit","debit","other"}.contains(parsed)) return fail("Forma de pagamento inválida.");
+            qint64 cents = 0;
+            if (!money(rawParts[i], cents) || cents <= 0) return fail("Informe valores válidos para cada parcela do pagamento.");
+            parts.append(cents);
+        }
+        qint64 sum = 0; for (const auto &part : parts) sum += part;
+        if (sum != amount) return fail("A soma das parcelas deve bater com o total da venda.");
+    } else {
+        methods = { normalizedMethod };
+        if (!QStringList{"cash","pix","credit","debit","other"}.contains(normalizedMethod)) return fail("Forma de pagamento inválida.");
+        qint64 received = amount;
+        if (normalizedMethod == "cash" && (!money(tendered,received) || received < amount)) return fail("Dinheiro recebido insuficiente ou inválido.");
+        parts = { received };
+    }
+
     Transaction tx;
     if (!tx.begin()) return fail("Banco ocupado. Tente novamente.");
     QSqlQuery q;
@@ -409,8 +434,20 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
         receipt += QString("%1 × %2: %3\n").arg(quantity).arg(name.toString(),currency(row.value("total_cents").toLongLong()));
     }
     q.prepare("INSERT INTO payments(sale_id,method,amount_cents,tendered_cents,change_cents) VALUES(?,?,?,?,?)");
-    for (const auto &value : QVariantList{saleId,method,amount,received,received-amount}) q.addBindValue(value);
+    const auto paymentMethod = methods.size() > 1 ? QStringLiteral("split") : methods.first();
+    const auto tenderedValue = methods.size() > 1 ? amount : parts.first();
+    const auto change = methods.size() > 1 ? 0 : std::max<qint64>(0, tenderedValue - amount);
+    for (const auto &value : QVariantList{saleId,paymentMethod,amount,tenderedValue,change}) q.addBindValue(value);
     if (!q.exec()) return fail(q.lastError().text());
+    for (int i = 0; i < methods.size(); ++i) {
+        q.prepare("INSERT INTO payment_items(sale_id,method,amount_cents,tendered_cents,change_cents) VALUES(?,?,?,?,?)");
+        const auto methodName = methods[i];
+        const auto itemAmount = parts[i];
+        const auto itemTendered = methodName == "cash" ? (methods.size() == 1 ? parts[i] : itemAmount) : itemAmount;
+        const auto itemChange = methodName == "cash" && methods.size() == 1 ? std::max<qint64>(0, itemTendered - amount) : 0;
+        for (const auto &value : QVariantList{saleId,methodName,itemAmount,itemTendered,itemChange}) q.addBindValue(value);
+        if (!q.exec()) return fail(q.lastError().text());
+    }
     if ((m_discount || m_surcharge) && !Audit::record("sale.adjust", "Venda #"+QString::number(saleId),
         QString("Subtotal: %1; desconto: %2; acréscimo: %3; total: %4; motivo: %5")
             .arg(currency(subtotal()),currency(m_discount),currency(m_surcharge),currency(amount),m_adjustmentReason)))
@@ -418,7 +455,8 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     if (!tx.commit()) return fail(tx.db.lastError().text());
     if (m_discount || m_surcharge) receipt += QString("Subtotal: %1\nDesconto: %2\nAcréscimo: %3\nMotivo: %4\n")
         .arg(currency(subtotal()),currency(m_discount),currency(m_surcharge),m_adjustmentReason);
-    m_receipt = receipt + QString("Total: %1\nTroco: %2").arg(currency(amount),currency(received-amount));
+    const auto changeAmount = methods.size() > 1 ? 0LL : std::max<qint64>(0, parts.first() - amount);
+    m_receipt = receipt + QString("Total: %1\nTroco: %2").arg(currency(amount),currency(changeAmount));
     resetAdjustments(); m_cart.clear(); refresh(m_search); return true;
 }
 }

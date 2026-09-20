@@ -251,6 +251,22 @@ private slots:
         QCOMPARE(scalar("SELECT discount_cents FROM sales").toInt(),0);
         QCOMPARE(scalar("SELECT total_cents FROM sales").toInt(),1234);
     }
+    void testSplitPayments() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("100,00","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.checkout(session, "cash|pix", "10,00|9,90", "Ana"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM payments").toInt(),1);
+        QCOMPARE(scalar("SELECT method FROM payments").toString(),QString("split"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM payment_items").toInt(),2);
+        QCOMPARE(scalar("SELECT SUM(amount_cents) FROM payment_items WHERE method='cash'").toInt(),1000);
+        QCOMPARE(scalar("SELECT SUM(amount_cents) FROM payment_items WHERE method='pix'").toInt(),990);
+        QCOMPARE(scalar("SELECT total_cents FROM sales").toInt(),1990);
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),10990);
+        QVERIFY(!pos.checkout(session, "cash|pix", "10,00|5,00", "Ana"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
+    }
     void permissionMatrix() {
         const auto matrix=MHStore::Auth::permissions();
         QCOMPARE(matrix.size(),10);
