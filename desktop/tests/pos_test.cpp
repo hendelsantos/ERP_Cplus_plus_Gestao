@@ -695,6 +695,9 @@ private slots:
         QCOMPARE(pos.dashboard().value("today_cents").toInt(),0);
         QCOMPARE(pos.dashboard().value("today_count").toInt(),0);
         QCOMPARE(pos.dashboard().value("cash_open").toInt(),0);
+        QCOMPARE(pos.dashboard().value("today_cash_cents").toInt(),0);
+        QCOMPARE(pos.dashboard().value("today_other_payment_cents").toInt(),0);
+        QCOMPARE(pos.dashboard().value("month_cancelled_count").toInt(),0);
         QSqlQuery q;
         QVERIFY(q.exec("INSERT INTO sales(total_cents) VALUES(1000),(2000)"));
         QVERIFY(q.exec("INSERT INTO sales(total_cents,status) VALUES(9000,'cancelled')"));
@@ -705,10 +708,15 @@ private slots:
         const int session=pos.cash().value("id").toInt();
         QVERIFY(pos.moveCash(session,"supply","50","Troco","Ana"));
         QVERIFY(pos.moveCash(session,"withdrawal","20","Retirada","Ana"));
+        QVERIFY(q.exec("INSERT INTO payment_items(sale_id,method,amount_cents) SELECT id,'cash',total_cents FROM sales WHERE status='completed' LIMIT 1"));
+        QVERIFY(q.exec("INSERT INTO payment_items(sale_id,method,amount_cents) SELECT id,'pix',total_cents FROM sales WHERE status='completed' LIMIT 1 OFFSET 1"));
         pos.refreshDashboard();
         QCOMPARE(pos.dashboard().value("today_cents").toInt(),3000);
         QCOMPARE(pos.dashboard().value("today_count").toInt(),2);
         QCOMPARE(pos.dashboard().value("month_cents").toInt(),3000);
+        QCOMPARE(pos.dashboard().value("today_cash_cents").toInt(),1000);
+        QCOMPARE(pos.dashboard().value("today_other_payment_cents").toInt(),2000);
+        QCOMPARE(pos.dashboard().value("month_cancelled_count").toInt(),1);
         QCOMPARE(pos.dashboard().value("low_stock").toInt(),1);
         QCOMPARE(pos.dashboard().value("no_stock").toInt(),1);
         QCOMPARE(pos.dashboard().value("cash_expected").toInt(),13000);

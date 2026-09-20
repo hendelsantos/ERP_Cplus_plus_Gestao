@@ -274,7 +274,10 @@ ApplicationWindow {
                             { title: "Ticket médio hoje", value: window.dashboardMoney(posStore.dashboard.today_count ? posStore.dashboard.today_cents / posStore.dashboard.today_count : 0), detail: "Faturamento ÷ vendas do dia" },
                             { title: "Estoque crítico", value: window.dashboardCount(posStore.dashboard.low_stock) + " produtos", detail: "Produtos ativos com saldo ≤ mínimo" },
                             { title: "Faturamento do mês", value: window.dashboardMoney(posStore.dashboard.month_cents), detail: "Vendas concluídas no mês local" },
-                            { title: "Dinheiro no caixa", value: window.dashboardMoney(posStore.dashboard.cash_expected), detail: posStore.dashboard.cash_open ? "Saldo esperado da sessão aberta" : "Nenhum caixa aberto" }
+                            { title: "Dinheiro no caixa", value: window.dashboardMoney(posStore.dashboard.cash_expected), detail: posStore.dashboard.cash_open ? "Saldo esperado da sessão aberta" : "Nenhum caixa aberto" },
+                            { title: "Recebido em dinheiro", value: window.dashboardMoney(posStore.dashboard.today_cash_cents), detail: "Vendas concluídas hoje" },
+                            { title: "Recebido por outros meios", value: window.dashboardMoney(posStore.dashboard.today_other_payment_cents), detail: "PIX, cartões e outros hoje" },
+                            { title: "Cancelamentos no mês", value: window.dashboardCount(posStore.dashboard.month_cancelled_count), detail: "Vendas canceladas no mês local" }
 
                         ]
 
