@@ -675,6 +675,20 @@ private slots:
         QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toDouble(),3.75);
         QVERIFY(!pos.setQuantityValue(1,"1,2345"));
     }
+    void exportReceiptPdf() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("0","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.checkout(session,"pix","","Ana"));
+        const auto pdfPath = directory.filePath("comprovante.pdf");
+        QVERIFY(pos.exportReceiptPdf(pdfPath));
+        QFile pdf(pdfPath);
+        QVERIFY(pdf.open(QIODevice::ReadOnly));
+        const auto content = pdf.readAll();
+        QVERIFY(content.startsWith("%PDF-"));
+        QVERIFY(content.size() > 500);
+    }
     void exportSalesCsv() {
         QSqlQuery q;
         QVERIFY(q.exec("INSERT INTO sales(total_cents,operator_name,created_at) VALUES(1000,'Ana; Caixa','2026-09-10 10:00:00'),(2000,'Bia','2026-09-20 10:00:00')"));

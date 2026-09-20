@@ -676,4 +676,47 @@ bool Pos::exportSalesPdf(const QString &filePath, const QString &fromDate, const
     m_error.clear(); emit changed();
     return true;
 }
+
+bool Pos::exportReceiptPdf(const QString &filePath)
+{
+    if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
+    const auto path = filePath.trimmed();
+    if (m_receipt.isEmpty()) return fail("Finalize uma venda antes de exportar o comprovante.");
+    if (path.isEmpty() || !QFileInfo(path).isAbsolute()) return fail("Informe um caminho absoluto para o comprovante PDF.");
+
+    QTemporaryFile temporary(QFileInfo(path).absolutePath() + QStringLiteral("/.mhstore-receipt-XXXXXX"));
+    if (!temporary.open()) return fail(temporary.errorString());
+    const auto temporaryPath = temporary.fileName();
+    temporary.close();
+    QPdfWriter writer(temporaryPath);
+    writer.setPageSize(QPageSize(QPageSize::A4));
+    writer.setResolution(96);
+    QPainter painter(&writer);
+    if (!painter.isActive()) {
+        QFile::remove(temporaryPath);
+        return fail("Não foi possível criar o comprovante PDF.");
+    }
+    const auto lines = m_receipt.split('\n');
+    const auto left = 100;
+    const auto bottom = writer.height() - 100;
+    const auto lineHeight = 32;
+    int y = 100;
+    painter.setFont(QFont(QStringLiteral("monospace"), 11));
+    for (const auto &line : lines) {
+        if (y > bottom) { writer.newPage(); y = 100; }
+        painter.drawText(left, y, line);
+        y += lineHeight;
+    }
+    painter.end();
+    if (QFile::exists(path) && !QFile::remove(path)) {
+        QFile::remove(temporaryPath);
+        return fail("Não foi possível substituir o comprovante PDF existente.");
+    }
+    if (!QFile::rename(temporaryPath, path)) {
+        QFile::remove(temporaryPath);
+        return fail("Não foi possível finalizar o comprovante PDF.");
+    }
+    m_error.clear(); emit changed();
+    return true;
+}
 }

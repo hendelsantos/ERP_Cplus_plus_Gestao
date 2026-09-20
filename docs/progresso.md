@@ -31,7 +31,7 @@ Revisão: 20/09/2026. Referência: `MH_Store_ERP_Plano_Completo.md`, especialmen
 | 0 — Fundação | Parcial | Logging e tema reutilizável |
 | 1 — Cadastros | Parcial | Usuários/login, fornecedores, campos complementares de produtos/clientes |
 | 2 — Estoque | Parcial | Inventário em lote, custo médio, alertas no dashboard e identificação autenticada do operador |
-| 3 — PDV | Parcial | Impressão não fiscal |
+| 3 — PDV | Parcial | Impressão física opcional |
 | 4 — Financeiro | Parcial | Despesas recorrentes e integração completa com caixa |
 | 5 — Dashboard/relatórios | Parcial | Gráficos e indicadores de contas a pagar/receber |
 | 6–9 | Não implementadas | Licenciamento, atualizações, nuvem e distribuição |
@@ -45,6 +45,7 @@ Backup local manual e restauração estão disponíveis; agendamento permanece p
 3. Completar caixa/PDV com descontos e pagamentos divididos.
 4. Histórico de vendas aceita filtro por período no formato `AAAA-MM-DD` e exportação CSV/PDF. O dashboard exibe recebimentos por meio, cancelamentos do mês e saldo de caixa. Despesas a pagar e contas a receber podem ser lançadas e baixadas/recebidas com movimentos transacionais no caixa.
 5. O PDV aceita quantidade fracionada com até três casas decimais, preservando estoque, total em centavos e histórico da venda.
+6. O comprovante não fiscal pode ser exportado para PDF após o checkout; impressão física permanece opcional.
 4. Adicionar agendamento de backup e ampliar relatórios.
 
 O saldo de estoque não pode ser editado no cadastro. A autenticação e identificação do operador precisam ser consideradas antes de disponibilizar operações que exijam auditoria por usuário. A versão 3 migra preços, valores de venda e abertura/fechamento para centavos inteiros. O PDV usa esses campos; os campos REAL originais permanecem como espelho de compatibilidade.

@@ -315,10 +315,41 @@ ColumnLayout {
         height: Math.min(450,parent.height-32)
         title: "Venda concluída"
         modal: true
-        standardButtons: Dialog.Close
+        footer: DialogButtonBox {
+            Button {
+                text: "Exportar PDF"
+                DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
+                onClicked: { receiptFile.text = ""; receiptExport.open() }
+            }
+            Button { text: "Fechar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            onRejected: receipt.close()
+        }
         contentItem: ScrollView {
             clip: true
             TextArea { text: page.pos.receipt; readOnly: true; wrapMode: TextEdit.Wrap; selectByMouse: true }
+        }
+    }
+    Dialog {
+        id: receiptExport
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(520,parent.width-32)
+        modal: true
+        title: "Exportar comprovante não fiscal"
+        contentItem: ColumnLayout {
+            Label { text: "Informe um caminho absoluto para o PDF."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            TextField { id: receiptFile; objectName: "receiptExportFile"; placeholderText: "/caminho/comprovante.pdf"; Layout.fillWidth: true }
+            Label { text: page.pos.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button {
+                text: "Exportar"
+                enabled: receiptFile.text.length > 0
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: if (page.pos.exportReceiptPdf(receiptFile.text)) receiptExport.close()
+            }
+            onRejected: receiptExport.close()
         }
     }
 }

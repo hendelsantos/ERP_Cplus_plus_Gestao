@@ -156,7 +156,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 - [ ] Descontos e acréscimos com regras e permissões definidas.
 - [ ] Pagamentos divididos, ajustando consultas que hoje assumem um pagamento por venda.
 - [ ] Cancelamento/devolução com justificativa e estorno de estoque/pagamento.
-- [ ] Comprovante não fiscal para impressão/exportação.
+- [x] Comprovante não fiscal para exportação PDF.
 
 **Concluída quando:** venda e estornos preservarem consistência entre pagamentos, estoque, caixa e histórico, inclusive em falhas simuladas.
 

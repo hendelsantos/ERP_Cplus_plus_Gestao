@@ -53,6 +53,7 @@ public:
     QVariantMap cash() const { return m_cash; }
     QString error() const { return m_error; }
     QString receipt() const { return m_receipt; }
+    Q_INVOKABLE bool exportReceiptPdf(const QString &filePath);
     qint64 subtotal() const;
     qint64 total() const { return subtotal()-m_discount+m_surcharge; }
     qint64 discount() const { return m_discount; }
