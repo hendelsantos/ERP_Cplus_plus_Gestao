@@ -1,3 +1,4 @@
+#include "../../core/diagnostics/diagnostics.h"
 #include "../../core/auth/auth.h"
 #include "../../core/settings/settings.h"
 #include "inventory.h"
@@ -86,9 +87,9 @@ bool Inventory::move(int productId, const QString &type, const QString &quantity
     auto database = QSqlDatabase::database();
     QSqlQuery query(database);
     // Obtain the write lock before reading the balance, so two connections cannot overwrite each other.
-    if (!query.exec(QStringLiteral("BEGIN IMMEDIATE"))) return fail(query.lastError().text());
+    if (!query.exec(QStringLiteral("BEGIN IMMEDIATE"))) { Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Inventory); return fail(query.lastError().text()); }
     auto rollback = [&](const QString &message) {
-        database.rollback();
+        database.rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Inventory);
         return fail(message);
     };
     query.prepare(QStringLiteral("SELECT stock_quantity, active FROM products WHERE id = :id"));

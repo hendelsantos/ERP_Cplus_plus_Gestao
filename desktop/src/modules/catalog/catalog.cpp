@@ -1,3 +1,4 @@
+#include "../../core/diagnostics/diagnostics.h"
 #include "../../core/auth/auth.h"
 #include "catalog.h"
 #include "../../core/audit/audit.h"
@@ -14,9 +15,9 @@ namespace {
 class Transaction {
 public:
     bool active=false;
-    bool begin() { QSqlQuery q; active=q.exec("BEGIN IMMEDIATE"); return active; }
+    bool begin() { QSqlQuery q; active=q.exec("BEGIN IMMEDIATE"); if(!active) Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Catalog); return active; }
     bool commit() { if (!QSqlDatabase::database().commit()) return false; active=false; return true; }
-    ~Transaction() { if (active) QSqlDatabase::database().rollback(); }
+    ~Transaction() { if (active) { QSqlDatabase::database().rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Catalog); } }
 };
 QString fieldLabels(const QStringList &fields) {
     static const QMap<QString,QString> labels={

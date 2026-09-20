@@ -1,6 +1,6 @@
 # Continuidade — MH Store ERP
 
-Revisão: 20/09/2026. A prioridade atual está em [docs/proximas-entregas.md](docs/proximas-entregas.md). A primeira entrega, backup automático e recuperação, foi implementada; a próxima é **robustez operacional e diagnóstico**.
+Revisão: 20/09/2026. A prioridade atual está em [docs/proximas-entregas.md](docs/proximas-entregas.md). As entregas de backup automático e robustez/diagnóstico foram implementadas; a próxima é **instalador e distribuição**.
 
 ## Como retomar
 
@@ -29,10 +29,10 @@ O produto continua modular e offline, com uma instalação SQLite por cliente. O
 
 Executável: `build/bin/MHStore`. O script prepara caminhos do Qt em `~/.local/share/mhstore-qt`. OpenSSL Crypto é dependência de compilação. Testes usam bancos temporários e autenticação real, sem acessar os dados do cliente.
 
-Suíte completa: cadastros, estoque, caixa/PDV, financeiro, backup e interface (6 conjuntos). Windows, máquina limpa de cliente e GPU real precisam de validação própria.
+Suíte completa: diagnóstico, cadastros, estoque, caixa/PDV, financeiro, backup e interface (7 conjuntos). Windows, máquina limpa de cliente e GPU real precisam de validação própria.
 
 ## Próximo passo
 
-Seguir a entrega 2 de `docs/proximas-entregas.md`: logging local com rotação e proteção de dados sensíveis, diagnóstico de versões/caminhos, integridade na inicialização e testes de falhas recuperáveis. Preservar funcionamento offline e atualizar checklist e evidências a cada entrega validada.
+Seguir a entrega 3 de `docs/proximas-entregas.md`: empacotamento com dependências, instalação limpa e atualização preservando dados. Considerar a validação Windows prevista na estrutura do projeto. O diagnóstico implementado é documentado em `docs/diagnostico.md`, com níveis, rotação, verificação SQLite e teste de transação interrompida. Preservar funcionamento offline e atualizar checklist e evidências a cada entrega validada.
 
 Instaladores, demonstrações por segmento, recursos comerciais finais e licenciamento vêm depois, na ordem do roteiro. Emissão fiscal e sincronização em nuvem têm escopo próprio.

@@ -14,6 +14,8 @@ class Settings : public QObject {
     Q_PROPERTY(QString message READ message NOTIFY changed)
 public:
     explicit Settings(QObject *parent = nullptr);
+    Q_INVOKABLE QVariantMap diagnostics() const;
+    Q_INVOKABLE bool configureLogging(int level);
     QVariantMap values() const { return m_values; }
     QString message() const { return m_message; }
     bool save(const QString &company, const QString &profile, bool inventory, bool cash, bool pos,

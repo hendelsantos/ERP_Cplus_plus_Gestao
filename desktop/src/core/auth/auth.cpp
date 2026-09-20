@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics.h"
 #include "auth.h"
 #include "../audit/audit.h"
 #include <QSqlDatabase>
@@ -33,9 +34,9 @@ bool validIdentity(const QString &name,const QString &login) {
 class Transaction {
 public:
     bool active=false;
-    bool begin() { QSqlQuery q; active=q.exec("BEGIN IMMEDIATE"); return active; }
+    bool begin() { QSqlQuery q; active=q.exec("BEGIN IMMEDIATE"); if(!active) Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Auth); return active; }
     bool commit() { if (!QSqlDatabase::database().commit()) return false; active=false; return true; }
-    ~Transaction() { if(active) QSqlDatabase::database().rollback(); }
+    ~Transaction() { if(active) { QSqlDatabase::database().rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Auth); } }
 };
 }
 void Auth::resetSession() { sessionId=0; sessionVersion=0; sessionDatabase.clear(); }

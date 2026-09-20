@@ -356,6 +356,8 @@ private slots:
             if (!screenshotDirectory.isEmpty()) window->grabWindow().save(screenshotDirectory + "/dashboard.png");
             QVERIFY(click("Configurações"));
             QVERIFY(click("Empresa e módulos"));
+            QVERIFY(click("Diagnóstico"));
+            QVERIFY(click("Fechar diagnóstico"));
             QVERIFY(fill("companyName", "Loja modular"));
             QVERIFY(fill("companyDocument", "12.345"));
             QVERIFY(fill("companyPhone", "1199999"));

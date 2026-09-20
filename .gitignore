@@ -29,3 +29,8 @@ CMakeUserPresets.json
 # Política local de backup automático
 *.backup.ini
 *.mhb.partial
+
+# Diagnóstico local
+diagnostics.ini
+session.active
+operations.log.*

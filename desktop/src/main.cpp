@@ -1,4 +1,5 @@
 #include "core/auth/auth.h"
+#include "core/diagnostics/diagnostics.h"
 #include "core/settings/settings.h"
 #include "core/audit/audit.h"
 #include "core/database/database.h"
@@ -21,20 +22,39 @@ int main(int argc, char *argv[])
 {
     QGuiApplication application(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("MH Store"));
+    QGuiApplication::setApplicationVersion(QStringLiteral(MHSTORE_VERSION));
     QGuiApplication::setOrganizationName(QStringLiteral("MHSoftware"));
 
+    auto showFailure=[&application](const QString &message) {
+        QQmlApplicationEngine failure;
+        failure.rootContext()->setContextProperty("startupFailure",message);
+        failure.loadData(R"(import QtQuick
+import QtQuick.Controls
+ApplicationWindow {
+    width: 660; height: 400; visible: true; title: "MH Store — recuperação necessária"
+    ScrollView { anchors.fill: parent; anchors.margins: 24
+        TextArea { text: startupFailure; readOnly: true; wrapMode: TextEdit.Wrap }
+    }
+})");
+        if(!failure.rootObjects().isEmpty()) application.exec();
+        return 1;
+    };
+
     const auto dataFolder = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if (!QDir().mkpath(dataFolder)) return 1;
+    if (!QDir().mkpath(dataFolder)) return showFailure("Não foi possível preparar a pasta de dados. Verifique espaço e permissões: "+dataFolder);
     QLockFile instanceLock(dataFolder + "/mhstore.lock");
     if (!instanceLock.tryLock(0)) {
         qCritical() << "Outra instância está aberta ou o diretório de dados está indisponível.";
-        return 1;
+        return showFailure("Outra instância está aberta ou a pasta de dados está indisponível. Feche a outra janela e tente novamente. Se persistir, verifique as permissões: "+dataFolder);
     }
+    MHStore::Diagnostics::start(dataFolder);
+    struct SessionGuard { ~SessionGuard() { MHStore::Diagnostics::finish(); } } sessionGuard;
     MHStore::Database::DatabaseManager database;
     QString databaseError;
     if (!database.initialize(&databaseError)) {
-        qCritical().noquote() << "Falha ao inicializar o banco local:" << databaseError;
-        return 1;
+        qCritical() << "Falha ao inicializar o banco. Consulte o diagnóstico local.";
+        return showFailure(QStringLiteral("Não foi possível abrir o banco com segurança.\n\n")+databaseError+
+            "\n\nNão apague o banco. Verifique espaço, permissões e procure suporte para recuperar um backup.\nPasta de dados: "+dataFolder);
     }
 
     MHStore::Auth auth;

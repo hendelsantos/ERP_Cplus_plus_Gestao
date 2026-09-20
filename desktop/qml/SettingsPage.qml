@@ -59,6 +59,7 @@ ColumnLayout {
         text: "Para alterar os módulos, feche o caixa e limpe o carrinho. Cadastros, consulta de vendas, dashboard e backup permanecem disponíveis. Desabilitar módulos preserva seus dados."
         Layout.fillWidth: true; wrapMode: Text.Wrap
     }
+    RowLayout {
     Button { text: "Salvar configurações"; onClicked: {
         var selection = {}
         for (var i = 0; i < moduleChoices.count; ++i) {
@@ -67,6 +68,33 @@ ColumnLayout {
         }
         page.settings.saveModules(company.text,profile.currentValue,selection,companyDocument.text,companyPhone.text,companyAddress.text)
     } }
+        Button { text: "Diagnóstico"; onClicked: diagnostic.open() }
+    }
+    Dialog {
+        id: diagnostic
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(620,parent.width-32)
+        modal: true
+        title: "Diagnóstico local"
+        property var report: ({})
+        onOpened: { report=page.settings.diagnostics(); level.currentIndex=report.level || 0; result.text="" }
+        contentItem: ColumnLayout {
+            Label { text: "Aplicativo: " + (diagnostic.report.application || "—") + " • Qt: " + (diagnostic.report.qt || "—") + " • Esquema: " + (diagnostic.report.schema || "—"); Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { text: "Banco: " + (diagnostic.report.database || "—") + "\nLogs: " + (diagnostic.report.logs || "—"); Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
+            Label { text: diagnostic.report.unclean_shutdown ? "A sessão anterior terminou inesperadamente. A integridade do banco foi verificada nesta inicialização." : "Sem encerramento inesperado detectado nesta inicialização."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { text: diagnostic.report.error || ""; visible: text.length>0; Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#b42318" }
+            Label { text: "Registrar eventos a partir de:" }
+            ComboBox { id: level; model: ["Informação", "Aviso", "Erro"]; Layout.fillWidth: true }
+            Label { text: "Logs locais registram eventos técnicos sem senhas, SQL ou dados de clientes. Mantêm até quatro arquivos de 1 MiB."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { id: result; Layout.fillWidth: true; wrapMode: Text.Wrap }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Fechar diagnóstico"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { text: "Salvar nível de log"; DialogButtonBox.buttonRole: DialogButtonBox.ActionRole; onClicked: { page.settings.configureLogging(level.currentIndex); result.text=page.settings.message; diagnostic.report=page.settings.diagnostics() } }
+            onRejected: diagnostic.close()
+        }
+    }
     Label { text: page.settings.message; Layout.fillWidth: true; wrapMode: Text.Wrap }
     Item { Layout.fillHeight: true }
 }

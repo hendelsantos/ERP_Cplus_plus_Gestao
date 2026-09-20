@@ -243,3 +243,7 @@ O PDV mostra subtotal, ajustes e total final. O pagamento, o troco, o caixa e os
 A permissão `pos.adjust` está disponível somente ao administrador na matriz atual e é revalidada na finalização. O ajuste concluído gera auditoria junto da venda, pagamento e baixa de estoque; qualquer falha desfaz a transação. Resumo e detalhes da venda exibem os ajustes e a justificativa. PIX/cartões continuam registros manuais.
 
 A migração **10** acrescenta subtotal, desconto, acréscimo e justificativa. Vendas antigas recebem subtotal igual ao total existente e ajustes zero, sem inventar histórico. Backups atuais incluem esses campos; a restauração segue a compatibilidade descrita na seção de backup. Ajustes percentuais, ajustes por item e rateio para devoluções não estão implementados.
+
+## Diagnóstico e recuperação na inicialização
+
+Administradores podem consultar **Configurações → Empresa e módulos → Diagnóstico** para ver versões, caminhos e configurar o nível de log. Logs locais possuem rotação e registram eventos fixos sem SQL, credenciais ou dados dos clientes. A inicialização detecta sessões interrompidas e verifica a integridade do SQLite antes de migrar; falhas apresentam orientação e preservam o banco. Consulte [docs/diagnostico.md](docs/diagnostico.md) para funcionamento e limites.

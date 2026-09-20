@@ -1,3 +1,4 @@
+#include "../../core/diagnostics/diagnostics.h"
 #include "../../core/auth/auth.h"
 #include "../../core/settings/settings.h"
 #include "pos.h"
@@ -62,9 +63,9 @@ class Transaction {
 public:
     QSqlDatabase db = QSqlDatabase::database();
     bool active = false;
-    bool begin() { QSqlQuery q(db); active = q.exec("BEGIN IMMEDIATE"); return active; }
+    bool begin() { QSqlQuery q(db); active = q.exec("BEGIN IMMEDIATE"); if(!active) Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Pos); return active; }
     bool commit() { if (!db.commit()) return false; active = false; return true; }
-    ~Transaction() { if (active) db.rollback(); }
+    ~Transaction() { if (active) { db.rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Pos); } }
 };
 }
 Pos::Pos(QObject *parent) : QObject(parent) { refresh(); }

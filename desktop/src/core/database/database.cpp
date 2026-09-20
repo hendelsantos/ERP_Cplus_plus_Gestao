@@ -1,4 +1,5 @@
 #include "database.h"
+#include "../diagnostics/diagnostics.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -26,12 +27,26 @@ bool DatabaseManager::initialize(QString *errorMessage, const QString &databaseP
     database.setDatabaseName(databasePath.isEmpty()
         ? dataDirectory + QStringLiteral("/mhstore.sqlite") : databasePath);
     if (!database.open()) {
+        Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::DatabaseOpenFailed,Diagnostics::Component::Database);
         if (errorMessage) {
             *errorMessage = database.lastError().text();
         }
         return false;
     }
 
+    QSqlQuery check(database);
+    if(!check.exec("PRAGMA integrity_check") || !check.next() || check.value(0).toString()!="ok") {
+        Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::IntegrityFailed,Diagnostics::Component::Database);
+        if(errorMessage) *errorMessage="Falha de integridade do SQLite. Preserve o arquivo e solicite recuperação de um backup ao suporte.";
+        return false;
+    }
+    check.finish();
+    if(!check.exec("PRAGMA foreign_key_check") || check.next()) {
+        Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::IntegrityFailed,Diagnostics::Component::Database);
+        if(errorMessage) *errorMessage="Vínculos inválidos no banco. Preserve o arquivo e solicite recuperação de um backup ao suporte.";
+        return false;
+    }
+    check.finish();
     return applyMigrations(errorMessage,database);
 }
 
@@ -44,10 +59,12 @@ bool DatabaseManager::applyMigrations(QString *errorMessage, QSqlDatabase databa
         return false;
     }
     if (!database.transaction()) {
+        Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::MigrationFailed,Diagnostics::Component::Database);
         if (errorMessage) *errorMessage = database.lastError().text();
         return false;
     }
     auto fail = [&](const QString &message) {
+        Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::MigrationFailed,Diagnostics::Component::Database);
         if (errorMessage) *errorMessage = message;
         database.rollback();
         return false;
@@ -181,6 +198,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage, QSqlDatabase databa
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (20)")
     }};
 
+    if(version<migrations.size()) Diagnostics::record(Diagnostics::Level::Info,Diagnostics::Event::MigrationStarted,Diagnostics::Component::Database);
     for (int migration = version; migration < migrations.size(); ++migration) {
         for (const auto &statement : migrations[migration]) {
             if (!query.exec(statement)) return fail(query.lastError().text());
@@ -188,10 +206,9 @@ bool DatabaseManager::applyMigrations(QString *errorMessage, QSqlDatabase databa
     }
 
     if (!database.commit()) {
-        if (errorMessage) *errorMessage = database.lastError().text();
-        database.rollback();
-        return false;
+        return fail(database.lastError().text());
     }
+    if(version<migrations.size()) Diagnostics::record(Diagnostics::Level::Info,Diagnostics::Event::MigrationCompleted,Diagnostics::Component::Database);
     return true;
 }
 

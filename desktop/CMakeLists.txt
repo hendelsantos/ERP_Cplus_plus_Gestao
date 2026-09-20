@@ -61,6 +61,10 @@ install(TARGETS MHStore
 include(CTest)
 if(BUILD_TESTING)
     find_package(Qt6 6.4 REQUIRED COMPONENTS Test)
+    qt_add_executable(diagnostics_tests tests/diagnostics_test.cpp src/core/database/database.cpp src/modules/catalog/catalog.cpp)
+    target_include_directories(diagnostics_tests PRIVATE src)
+    target_link_libraries(diagnostics_tests PRIVATE Qt6::Test Qt6::Sql)
+    add_test(NAME diagnostics_tests COMMAND diagnostics_tests)
     qt_add_executable(catalog_tests
         tests/catalog_test.cpp
         src/modules/catalog/catalog.cpp
@@ -133,9 +137,10 @@ if(BUILD_TESTING)
     set_tests_properties(ui_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
 
-foreach(app_target MHStore catalog_tests inventory_tests pos_tests finance_tests backup_tests ui_tests)
+foreach(app_target MHStore diagnostics_tests catalog_tests inventory_tests pos_tests finance_tests backup_tests ui_tests)
     if(TARGET ${app_target})
-        target_sources(${app_target} PRIVATE src/core/settings/settings.cpp src/core/settings/settings.h src/core/auth/auth.cpp src/core/auth/auth.h src/core/audit/audit.cpp src/core/audit/audit.h)
+        target_compile_definitions(${app_target} PRIVATE MHSTORE_VERSION="${PROJECT_VERSION}")
+        target_sources(${app_target} PRIVATE src/core/diagnostics/diagnostics.cpp src/core/diagnostics/diagnostics.h src/core/settings/settings.cpp src/core/settings/settings.h src/core/auth/auth.cpp src/core/auth/auth.h src/core/audit/audit.cpp src/core/audit/audit.h)
         target_link_libraries(${app_target} PRIVATE OpenSSL::Crypto)
             target_link_libraries(${app_target} PRIVATE Qt6::PrintSupport)
     endif()

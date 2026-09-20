@@ -356,3 +356,18 @@ Item marcado [x] no roteiro e Etapa 2 concluída. Próxima entrega: descontos e 
 - Banco permanece no **esquema 20**, sem nova migração. Roteiro e continuidade atualizados; próximo item: robustez e diagnóstico.
 
 Validação: compilação concluída e **6/6 conjuntos de testes aprovados** (119,64 s), sem avisos QML; execução em bancos temporários. Não houve simulação de disco fisicamente cheio nem queda de energia real; falha de destino não gravável e rollback são cobertos automaticamente. Windows e distribuição em máquina limpa continuam pendentes.
+
+## 20/09/2026 — Robustez operacional e diagnóstico (próximas entregas, item 2)
+
+- `core/diagnostics`: logs locais com níveis persistidos, timestamps UTC, componente e eventos fixos, rotação em quatro arquivos de até 1 MiB e serialização das gravações concorrentes. Sem captura de SQL, parâmetros, credenciais, conteúdo dos cadastros ou mensagens arbitrárias de exceção.
+- Registros de início/encerramento, integridade, migrações, backups/restauração, falhas de início de transação e rollback nos módulos operacionais. Problemas de log ficam disponíveis no diagnóstico sem impedir a operação.
+- Marcador de sessão criado após bloqueio de instância e removido após encerramento dos serviços; próxima inicialização detecta interrupção.
+- Verificação SQLite de integridade e vínculos antes de aplicar migrações. Banco inválido não entra na operação normal: janela de erro orienta preservação e suporte para recuperação. Pasta indisponível e conflito de instância também têm orientação visual.
+- Diagnóstico administrativo em Empresa e módulos: versões do aplicativo/Qt/esquema, caminhos, estado da sessão anterior, falhas do logger e nível configurável. Versão do aplicativo vem do CMake; não houve alteração do esquema 20.
+- Novo conjunto `diagnostics_tests`: rotação, filtragem/persistência de níveis, autorização, gravações concorrentes, falha de destino e retomada, arquivo corrompido preservado, vínculos inválidos, falha de migração, rollback com erro contendo informação sensível sem vazar no log.
+- Processo auxiliar encerrado sem destrutores durante transação: na reabertura, dados confirmados permanecem, alteração incompleta é descartada e sessão interrompida é detectada.
+- Teste adicional do executável com SQLite corrompido em pasta temporária confirmou carregamento da janela de erro sem avisos QML, arquivo preservado e evento de integridade registrado.
+
+Funcionamento e limites em `docs/diagnostico.md`. Não simula perda física de energia ou disco cheio real; desempenho da verificação em bases grandes e Windows continuam pendentes. Próxima entrega: instalador e distribuição.
+
+Validação final desta entrega: compilação concluída, **7/7 conjuntos aprovados** em 117,71 s, sem avisos QML. Interface de configurações conferida em 960 × 640 e abertura/fechamento do diagnóstico testados. Testes executados somente com dados temporários.

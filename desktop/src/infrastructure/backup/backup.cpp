@@ -1,3 +1,4 @@
+#include "../../core/diagnostics/diagnostics.h"
 #include "../../core/auth/auth.h"
 #include "backup.h"
 #include "../../core/database/database.h"
@@ -96,6 +97,7 @@ void Backup::runAutomatic(bool force) {
     struct Result { QString error,path; };
     auto result=std::make_shared<Result>();
     const auto databasePath=m_databasePath, owner=m_owner;
+    Diagnostics::record(Diagnostics::Level::Info,Diagnostics::Event::BackupStarted,Diagnostics::Component::Backup);
     m_worker=QThread::create([databasePath,folder,owner,keep,result] {
         const auto connection=QUuid::createUuid().toString();
         {
@@ -147,13 +149,14 @@ void Backup::runAutomatic(bool force) {
             m_automatic["last_success"]=now;
             if(config.status()!=QSettings::NoError) result->error="Cópia criada, mas não foi possível salvar o horário do agendamento.";
         }
+        Diagnostics::record(result->error.isEmpty()?Diagnostics::Level::Info:Diagnostics::Level::Error,result->error.isEmpty()?Diagnostics::Event::BackupCompleted:Diagnostics::Event::BackupFailed,Diagnostics::Component::Backup);
         m_automaticMessage=result->error.isEmpty()?"Backup automático criado e verificado: "+result->path:result->error;
         emit changed();
         if(m_pendingAutomatic) { m_pendingAutomatic=false; runAutomatic(true); }
     });
     m_automaticMessage="Criando backup automático em segundo plano…"; emit changed(); m_worker->start();
 }
-bool Backup::fail(const QString &message) { m_message=message; emit changed(); return false; }
+bool Backup::fail(const QString &message) { Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::BackupFailed,Diagnostics::Component::Backup); m_message=message; emit changed(); return false; }
 void Backup::list(const QString &folder)
 {
     if (!Auth::allowed("backup")) { m_files.clear(); emit changed(); return; }
@@ -201,7 +204,9 @@ bool Backup::create(const QString &folder)
     if (!Auth::allowed("backup")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (busy()) return fail("Aguarde o backup automático em andamento.");
     QString path;
+    Diagnostics::record(Diagnostics::Level::Info,Diagnostics::Event::BackupStarted,Diagnostics::Component::Backup);
     if (!snapshot(folder,"mhstore_",path)) return false;
+    Diagnostics::record(Diagnostics::Level::Info,Diagnostics::Event::BackupCompleted,Diagnostics::Component::Backup);
     m_message="Backup criado e verificado: " + path;
     list(folder);
     return true;
@@ -281,6 +286,7 @@ bool Backup::restore(const QString &file)
     q.exec("DETACH DATABASE recovery");
     m_message="Restauração concluída. Abra novamente o aplicativo. Cópia anterior: " + safety;
     list(m_folder);
+    Diagnostics::record(Diagnostics::Level::Info,Diagnostics::Event::RestoreCompleted,Diagnostics::Component::Backup);
     m_restored=true; m_timer.stop();
     Auth::resetSession();
     emit restored();

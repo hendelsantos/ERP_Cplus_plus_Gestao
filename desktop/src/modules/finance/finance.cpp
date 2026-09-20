@@ -1,3 +1,4 @@
+#include "../../core/diagnostics/diagnostics.h"
 #include "finance.h"
 #include "../../core/auth/auth.h"
 #include "../../core/settings/settings.h"
@@ -67,8 +68,8 @@ bool Finance::updateServiceOrder(int orderId, const QString &status) {
     if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem atualizar ordens de serviço.");
     if (!QStringList{"open","in_progress","completed","cancelled"}.contains(status)) return fail("Status de ordem de serviço inválido.");
     auto db = QSqlDatabase::database();
-    if (!db.transaction()) return fail(db.lastError().text());
-    auto rollback = [&](const QString &message) { db.rollback(); return fail(message); };
+    if (!db.transaction()) { Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Finance); return fail(db.lastError().text()); }
+    auto rollback = [&](const QString &message) { db.rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Finance); return fail(message); };
     QSqlQuery query(db);
     query.prepare("SELECT status FROM service_orders WHERE id=?"); query.addBindValue(orderId);
     if (!query.exec() || !query.next()) return rollback("Ordem de serviço não encontrada.");
@@ -131,8 +132,8 @@ bool Finance::createReceivable(const QString &description, const QString &amount
 bool Finance::receiveReceivable(int receivableId, int cashSessionId) {
     if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem receber contas.");
     auto db = QSqlDatabase::database();
-    if (!db.transaction()) return fail(db.lastError().text());
-    auto rollback = [&](const QString &message) { db.rollback(); return fail(message); };
+    if (!db.transaction()) { Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Finance); return fail(db.lastError().text()); }
+    auto rollback = [&](const QString &message) { db.rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Finance); return fail(message); };
     QSqlQuery query(db);
     query.prepare("SELECT description, amount_cents, status FROM receivables WHERE id=?"); query.addBindValue(receivableId);
     if (!query.exec() || !query.next()) return rollback("Conta a receber não encontrada.");
@@ -166,8 +167,8 @@ bool Finance::createExpense(const QString &description, const QString &amount, c
 bool Finance::payExpense(int expenseId, int cashSessionId) {
     if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem baixar despesas.");
     auto db = QSqlDatabase::database();
-    if (!db.transaction()) return fail(db.lastError().text());
-    auto rollback = [&](const QString &message) { db.rollback(); return fail(message); };
+    if (!db.transaction()) { Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Finance); return fail(db.lastError().text()); }
+    auto rollback = [&](const QString &message) { db.rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Finance); return fail(message); };
     QSqlQuery query(db);
     query.prepare("SELECT description, amount_cents, status FROM expenses WHERE id=?"); query.addBindValue(expenseId);
     if (!query.exec() || !query.next()) return rollback("Despesa não encontrada.");

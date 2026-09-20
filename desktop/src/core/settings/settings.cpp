@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics.h"
 #include "../auth/auth.h"
 #include "../audit/audit.h"
 #include "settings.h"
@@ -106,8 +107,8 @@ bool Settings::save(const QString &company, const QString &profile, bool invento
     const auto dependency=dependencyError({{"inventory",inventory},{"cash",cash},{"pos",pos}});
     if (!dependency.isEmpty()) return fail(dependency);
     QSqlQuery q;
-    if (!q.exec("BEGIN IMMEDIATE")) return fail("Banco ocupado. Tente novamente.");
-    auto abort=[&](const QString &message) { QSqlDatabase::database().rollback(); return fail(message); };
+    if (!q.exec("BEGIN IMMEDIATE")) { Diagnostics::record(Diagnostics::Level::Error,Diagnostics::Event::TransactionStartFailed,Diagnostics::Component::Settings); return fail("Banco ocupado. Tente novamente."); }
+    auto abort=[&](const QString &message) { QSqlDatabase::database().rollback(); Diagnostics::record(Diagnostics::Level::Warning,Diagnostics::Event::TransactionRollback,Diagnostics::Component::Settings); return fail(message); };
     if (!q.exec("SELECT inventory,cash,pos FROM business_settings WHERE id=1") || !q.next()) return abort("Falha ao consultar configurações.");
     const bool changing=q.value(0).toBool()!=inventory || q.value(1).toBool()!=cash || q.value(2).toBool()!=pos;
     q.finish();
@@ -129,4 +130,19 @@ bool Settings::save(const QString &company, const QString &profile, bool invento
         {"document",taxId},{"phone",contact},{"address",where}};
     m_message="Configurações salvas."; emit changed(); return true;
 }
+}
+
+QVariantMap MHStore::Settings::diagnostics() const {
+    if(!Auth::allowed("settings")) return {};
+    auto result=Diagnostics::report();
+    result["application"]=QStringLiteral(MHSTORE_VERSION);
+    result["database"]=QSqlDatabase::database().databaseName();
+    QSqlQuery q("SELECT MAX(version) FROM schema_migrations");
+    result["schema"]=q.next()?q.value(0):QVariant();
+    return result;
+}
+bool MHStore::Settings::configureLogging(int level) {
+    if(!Auth::allowed("settings")) return fail("Acesso negado.");
+    if(!Diagnostics::setLevel(level)) return fail("Não foi possível salvar o nível. Verifique espaço e permissões da pasta de dados.");
+    m_message="Nível de log salvo."; emit changed(); return true;
 }

@@ -50,7 +50,7 @@ Criar cópias locais periódicas do banco SQLite sem exigir uma ação manual do
 - [x] falhas de disco ou permissão aparecem com mensagem clara;
 - [x] testes cobrem criação, retenção, corrupção e restauração.
 
-Entrega 1 implementada no esquema 20, sem nova migração. Evidências e limites em `progresso.md`; operação em `../README.md`. Próxima entrega: robustez e diagnóstico.
+Entrega 1 implementada no esquema 20, sem nova migração. Evidências e limites em `progresso.md`; operação em `../README.md`. Robustez e diagnóstico descritos na entrega 2.
 
 ## 2. Robustez e diagnóstico
 
@@ -60,20 +60,22 @@ Facilitar suporte e recuperação sem expor credenciais ou dados sensíveis desn
 
 ### Escopo
 
-- logging local de inicialização, migração, backup e falhas de transação;
-- níveis de log configuráveis;
-- rotação de arquivos de log;
-- diagnóstico da versão do aplicativo, Qt, schema e caminho do banco;
-- tratamento de desligamento inesperado;
-- verificação de integridade do SQLite na inicialização;
-- mensagens de erro com ação recomendada.
+- [x] logging local de inicialização, migração, backup e falhas de transação;
+- [x] níveis de log configuráveis;
+- [x] rotação de arquivos de log;
+- [x] diagnóstico da versão do aplicativo, Qt, schema e caminho do banco;
+- [x] tratamento de desligamento inesperado;
+- [x] verificação de integridade do SQLite na inicialização;
+- [x] mensagens de erro com ação recomendada.
 
 ### Critérios de conclusão
 
-- logs não contêm senhas, hashes, tokens ou códigos de recuperação;
-- erros críticos possuem contexto suficiente para suporte;
-- o aplicativo continua iniciando após falhas recuperáveis;
-- testes simulam falhas de banco, disco e migração.
+- [x] logs não contêm senhas, hashes, tokens ou códigos de recuperação;
+- [x] erros críticos possuem contexto suficiente para suporte;
+- [x] o aplicativo continua iniciando após falhas recuperáveis;
+- [x] testes simulam falhas de banco, disco e migração.
+
+Entrega 2 implementada sem alteração de esquema. Operação e limites em [diagnostico.md](diagnostico.md). Próxima entrega: instalador e distribuição.
 
 ## 3. Instalador e distribuição
 

@@ -188,7 +188,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 ### Etapa 6 — Recuperação e distribuição
 
 - [x] Backup automático local e restauração de backups antigos com migração controlada.
-- [ ] Logging e diagnóstico sem expor credenciais.
+- [x] Logging e diagnóstico sem expor credenciais. Ver `docs/diagnostico.md`.
 - [ ] Compilação e testes em Windows.
 - [ ] Instalador com Qt, OpenSSL e demais dependências.
 - [ ] Atualização preservando dados e procedimento de recuperação em falhas.
