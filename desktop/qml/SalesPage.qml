@@ -9,6 +9,7 @@ ColumnLayout {
     property int customerId: 0
     property int pageNumber: 0
     property bool ready: false
+    property string exportStatus: ""
     function money(cents) { return "R$ " + (Number(cents || 0)/100).toLocaleString(Qt.locale("pt_BR"),'f',2) }
     function payment(method) { return ({cash:"Dinheiro",pix:"PIX",credit:"Crédito",debit:"Débito",other:"Outros"})[method] || "Pagamento não disponível" }
     function status(value) { return value === "completed" ? "Concluída" : value }
@@ -62,6 +63,11 @@ ColumnLayout {
         }
         Button { text: "Atualizar vendas"; onClicked: page.reload() }
     }
+    RowLayout {
+        Layout.fillWidth: true
+        Button { text: "Exportar CSV"; onClicked: { exportFile.text = ""; exportDialog.open() } }
+        Label { text: page.exportStatus; color: "#166534"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+    }
     Label { text: page.pos.salesError; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     ListView {
         Layout.fillWidth: true
@@ -97,6 +103,49 @@ ColumnLayout {
         Button { text: "Anterior"; enabled: page.pageNumber > 0; onClicked: { page.pageNumber--; page.reload() } }
         Label { text: "Página " + (page.pageNumber+1) + " • Até 50 vendas por página"; Layout.fillWidth: true }
         Button { text: "Próxima"; enabled: page.pos.moreSales; onClicked: { page.pageNumber++; page.reload() } }
+    }
+    Dialog {
+        id: exportDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(560,parent.width-32)
+        modal: true
+        title: "Exportar vendas para CSV"
+        contentItem: ColumnLayout {
+            Label {
+                text: "Informe o caminho absoluto do arquivo. O período preenchido na tela será aplicado ao relatório."
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            TextField {
+                id: exportFile
+                objectName: "salesExportFile"
+                placeholderText: "/caminho/relatorio.csv"
+                Layout.fillWidth: true
+            }
+            Label {
+                visible: page.pos.error.length > 0
+                text: page.pos.error
+                color: "#b42318"
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button {
+                text: "Exportar"
+                enabled: exportFile.text.length > 0
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: {
+                    if (page.pos.exportSalesCsv(exportFile.text,fromDate.text,toDate.text)) {
+                        page.exportStatus = "CSV exportado: " + exportFile.text
+                        exportDialog.close()
+                    }
+                }
+            }
+            onRejected: exportDialog.close()
+        }
     }
     Dialog {
         id: details

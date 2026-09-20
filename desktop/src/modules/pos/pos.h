@@ -43,6 +43,7 @@ public:
     QString salesError() const { return m_salesError; }
     Q_INVOKABLE void searchSales(const QString &number = {}, int page = 0, int customerId = 0,
                                  const QString &fromDate = {}, const QString &toDate = {});
+    Q_INVOKABLE bool exportSalesCsv(const QString &filePath, const QString &fromDate = {}, const QString &toDate = {});
     Q_INVOKABLE bool loadSale(int saleId);
     QVariantList products() const { return m_products; }
     QVariantList cart() const { return m_cart; }

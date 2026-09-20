@@ -659,6 +659,21 @@ private slots:
         QVERIFY(pos.sales().isEmpty());
         QVERIFY(!pos.salesError().isEmpty());
     }
+    void exportSalesCsv() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO sales(total_cents,operator_name,created_at) VALUES(1000,'Ana; Caixa','2026-09-10 10:00:00'),(2000,'Bia','2026-09-20 10:00:00')"));
+        const auto csvPath = directory.filePath("relatorio.csv");
+        MHStore::Pos pos;
+        QVERIFY(pos.exportSalesCsv(csvPath,"2026-09-15","2026-09-25"));
+        QFile csv(csvPath);
+        QVERIFY(csv.open(QIODevice::ReadOnly | QIODevice::Text));
+        const auto content = QString::fromUtf8(csv.readAll());
+        QVERIFY(content.startsWith("Venda;Data;Status;Total (centavos);Operador;Pagamento;Pago (centavos)\n"));
+        QVERIFY(content.contains("\"Bia\""));
+        QVERIFY(!content.contains("1000"));
+        QVERIFY(!pos.exportSalesCsv(directory.filePath("invalido"),"2026-09-25","2026-09-15"));
+        QVERIFY(!pos.exportSalesCsv("relatorio.csv"));
+    }
     void dashboardMetrics() {
         MHStore::Pos pos;
         pos.refreshDashboard();

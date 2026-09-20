@@ -43,7 +43,7 @@ Backup local manual e restauração estão disponíveis; agendamento permanece p
 1. Completar fornecedores e campos necessários dos cadastros.
 2. Completar estoque com inventário em lote e identificação do operador pelo futuro login.
 3. Completar caixa/PDV com descontos e pagamentos divididos.
-4. Histórico de vendas agora aceita filtro por período no formato `AAAA-MM-DD`; permanecem pendentes exportação CSV/PDF e indicadores financeiros.
+4. Histórico de vendas aceita filtro por período no formato `AAAA-MM-DD` e exportação CSV UTF-8; permanecem pendentes PDF e indicadores financeiros.
 4. Adicionar agendamento de backup e ampliar relatórios.
 
 O saldo de estoque não pode ser editado no cadastro. A autenticação e identificação do operador precisam ser consideradas antes de disponibilizar operações que exijam auditoria por usuário. A versão 3 migra preços, valores de venda e abertura/fechamento para centavos inteiros. O PDV usa esses campos; os campos REAL originais permanecem como espelho de compatibilidade.

@@ -8,6 +8,10 @@
 #include <QSqlRecord>
 #include <QRegularExpression>
 #include <QLocale>
+#include <QFileInfo>
+#include <QSaveFile>
+#include <QTextStream>
+#include <QStringConverter>
 
 namespace MHStore {
 namespace {
@@ -36,6 +40,12 @@ QString cashBalanceExpression()
         "FROM cash_movements m WHERE m.cash_session_id=c.id),0)");
 }
 QString currency(qint64 cents) { return QLocale("pt_BR").toCurrencyString(cents / 100.0); }
+QString csvCell(const QVariant &value)
+{
+    auto text = value.toString();
+    text.replace('"', "\"\"");
+    return '"' + text + '"';
+}
 QVariantList records(QSqlQuery &query)
 {
     QVariantList result;
@@ -534,6 +544,46 @@ bool Pos::cancelSale(int saleId, const QString &reason)
 
     if (!tx.commit()) return fail(tx.db.lastError().text());
     refresh(m_search);
+    return true;
+}
+
+bool Pos::exportSalesCsv(const QString &filePath, const QString &fromDate, const QString &toDate)
+{
+    if (!Auth::allowed("read")) return fail("Acesso negado. Entre com um usuário autorizado.");
+    const auto path = filePath.trimmed();
+    const auto startDate = fromDate.trimmed();
+    const auto endDate = toDate.trimmed();
+    const QRegularExpression isoDate(QStringLiteral("^\\d{4}-\\d{2}-\\d{2}$"));
+    if (path.isEmpty() || !QFileInfo(path).isAbsolute()) return fail("Informe um caminho absoluto para o arquivo CSV.");
+    if ((!startDate.isEmpty() && !isoDate.match(startDate).hasMatch()) ||
+        (!endDate.isEmpty() && !isoDate.match(endDate).hasMatch()) ||
+        (!startDate.isEmpty() && !endDate.isEmpty() && startDate > endDate))
+        return fail("Informe um período válido no formato AAAA-MM-DD.");
+
+    QSqlQuery query;
+    query.prepare("SELECT s.id, datetime(s.created_at,'localtime'), s.status, s.total_cents, "
+                  "s.operator_name, COALESCE(p.method,''), COALESCE(p.amount_cents,0) "
+                  "FROM sales s LEFT JOIN payments p ON p.sale_id=s.id "
+                  "WHERE (?='' OR date(s.created_at,'localtime')>=date(?)) "
+                  "AND (?='' OR date(s.created_at,'localtime')<=date(?)) ORDER BY s.id");
+    query.addBindValue(startDate); query.addBindValue(startDate);
+    query.addBindValue(endDate); query.addBindValue(endDate);
+    if (!query.exec()) return fail(query.lastError().text());
+
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return fail(file.errorString());
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+    stream << "Venda;Data;Status;Total (centavos);Operador;Pagamento;Pago (centavos)\n";
+    while (query.next()) {
+        for (int column = 0; column < query.record().count(); ++column) {
+            if (column) stream << ';';
+            stream << csvCell(query.value(column));
+        }
+        stream << '\n';
+    }
+    if (stream.status() != QTextStream::Ok || !file.commit()) return fail(file.errorString());
+    m_error.clear(); emit changed();
     return true;
 }
 }
