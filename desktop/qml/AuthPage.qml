@@ -11,7 +11,7 @@ ColumnLayout {
     Label { text: "Acesso local • Funciona sem internet" }
     TextField { id: name; objectName: "authName"; visible: page.auth.needsSetup; placeholderText: "Nome do administrador"; Layout.fillWidth: true; maximumLength: 120 }
     TextField { id: login; objectName: "authLogin"; placeholderText: "Login"; Layout.fillWidth: true; maximumLength: 40 }
-    TextField { id: code; visible: page.recovering; placeholderText: "Código de recuperação"; echoMode: TextInput.Password; Layout.fillWidth: true; maximumLength: 64 }
+    TextField { id: code; objectName: "authCode"; visible: page.recovering; placeholderText: "Código de recuperação"; echoMode: TextInput.Password; Layout.fillWidth: true; maximumLength: 64 }
     TextField { id: password; objectName: "authPassword"; placeholderText: page.auth.needsSetup || page.recovering ? "Nova senha (12 a 128 caracteres)" : "Senha"; echoMode: TextInput.Password; Layout.fillWidth: true; maximumLength: 128 }
     TextField { id: confirmation; objectName: "authConfirm"; visible: page.auth.needsSetup || page.recovering; placeholderText: "Confirme a senha"; echoMode: TextInput.Password; Layout.fillWidth: true; maximumLength: 128 }
     Label { id: localError; Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#b42318" }

@@ -15,7 +15,9 @@ Referências: [OWASP — armazenamento de senhas](https://cheatsheetseries.owasp
 
 ## Recuperação
 
-O primeiro administrador recebe código aleatório de 32 bytes, mostrado uma única vez. SHA-256 do código é armazenado, sem o código original. Recuperar exige login e código; gera novo salt, senha e código em transação e invalida o código anterior. Editar a conta pela administração invalida seu código. Contas adicionais dependem de outro administrador para redefinição. Sem código nem outro administrador, não existe bypass de recuperação fornecido pelo aplicativo.
+O primeiro administrador recebe código aleatório de 32 bytes, mostrado uma única vez. SHA-256 do código é armazenado, sem o código original. Recuperar exige login e código; gera novo salt, senha e código em transação e invalida o código anterior. A recuperação aceita qualquer administrador ativo com código válido.
+
+Administradores adicionais recebem código por outro administrador, no botão **Código de recuperação** de **Usuários**: o código é gerado em transação, exibido uma única vez ao emissor e invalida o anterior da conta. Emitir para a própria conta, operador ou conta inativa é rejeitado; o emissor deve entregar o código por canal seguro. Editar a conta pela administração invalida seu código. Sem código nem outro administrador, não existe bypass de recuperação fornecido pelo aplicativo.
 
 ## Permissões e rastreabilidade
 
@@ -27,5 +29,5 @@ O esquema 6 preserva registros antigos com vínculos nulos. Recuperação de bac
 
 - Controle de acesso dentro do aplicativo não protege contra alguém com permissão do sistema operacional para editar ou copiar o SQLite. Banco e backup não estão criptografados.
 - Relógio local controla bloqueio temporário. Um backup antigo pode restaurar senhas/códigos e contadores antigos; proteja os arquivos.
-- Recuperação para administradores adicionais, permissões customizáveis e auditoria geral ainda pendentes.
+- Permissões customizáveis e auditoria geral ainda pendentes.
 - OpenSSL deve acompanhar o pacote Windows; instalação e renderização em Windows ainda precisam ser validadas.

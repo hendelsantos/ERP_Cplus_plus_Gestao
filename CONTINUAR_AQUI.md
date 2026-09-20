@@ -1,6 +1,6 @@
 # Continuidade — MH Store ERP
 
-Este arquivo registra o ponto de parada após a troca da própria senha, primeira entrega da Etapa 1 do roteiro.
+Este arquivo registra o ponto de parada após a emissão/rotação de código de recuperação para administradores adicionais, segunda entrega da Etapa 1 do roteiro.
 
 ## Como retomar
 
@@ -16,7 +16,7 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Estado implementado
 
-- Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código e troca da própria senha. Leia `docs/autenticacao.md`.
+- Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código para todos os administradores e troca da própria senha. Leia `docs/autenticacao.md`.
 - Registro central de módulos implementados, nomes, dependências e disponibilidade para menu/configurações.
 - Empresa e perfil persistidos; Estoque/Caixa/PDV configuráveis, com dependências e bloqueios no C++.
 - C++20, Qt 6.4+, QML, Qt SQL e SQLite local.
@@ -33,11 +33,11 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Última validação
 
-Após a entrega da troca da própria senha:
+Após a entrega do código de recuperação para administradores adicionais:
 
 - Compilação concluída.
-- **5/5 conjuntos de testes passaram**: cadastros, estoque, caixa/PDV (incluindo troca de senha), backup e interface (incluindo o diálogo de senha).
-- Interface conferida em 960 × 640, incluindo login, administração de usuários e diálogo **Minha senha**.
+- **5/5 conjuntos de testes passaram**: cadastros, estoque, caixa/PDV (incluindo troca de senha e emissão de código), backup e interface (incluindo diálogo de senha e fluxo de recuperação com código emitido).
+- Interface conferida em 960 × 640, incluindo login, administração de usuários, diálogo **Minha senha** e emissão/uso do código de recuperação.
 - Os testes usam bancos temporários; não devem acessar os dados reais da aplicação.
 - Windows e renderização em GPU real ainda não foram validados.
 
@@ -101,11 +101,11 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 
 ## Próxima etapa sugerida — ainda não iniciada
 
-**Próxima tarefa concreta: emissão/rotação de código de recuperação para administradores adicionais**, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
+**Próxima tarefa concreta: definir permissões por ação antes de oferecer perfis configuráveis**, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
 
 Sequência de evolução da base modular:
 
-1. Evoluir autenticação: recuperação para administradores adicionais, perfis/permissões configuráveis e auditoria das alterações de usuários.
+1. Evoluir autenticação: matriz de permissões por ação, perfis configuráveis e auditoria das alterações de usuários.
 2. Implementar auditoria geral de alterações de cadastros e usuários. Operações de venda/estoque/caixa já possuem vínculo autenticado.
 3. Planejar recursos por segmento (grade, peso, serviços) antes de prometer suporte operacional.
 4. Completar financeiro, fornecedores, comprovantes e distribuição Windows antes da versão comercial.
@@ -124,6 +124,6 @@ Consulte `docs/comercializacao.md` para os critérios de entrega. O filtro por p
 - Inventário em lote e custo médio.
 - Licenciamento, atualização e instaladores.
 
-Não há implementação em andamento a completar neste ponto: a troca da própria senha foi concluída e validada, com testes de serviço e interface.
+Não há implementação em andamento a completar neste ponto: a emissão/rotação de código de recuperação foi concluída e validada, com testes de serviço e interface.
 
 OpenSSL Crypto é dependência de compilação. Testes criam usuários reais em bancos temporários, sem bypass de autenticação no código de produção.

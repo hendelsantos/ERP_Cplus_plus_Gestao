@@ -26,9 +26,13 @@ ColumnLayout {
         ComboBox { id: role; model: ["Operador de caixa","Administrador"] }
         CheckBox { id: active; text: "Ativo"; checked: true }
         Button { text: page.editingId ? "Salvar usuário" : "Criar usuário"; onClicked: { if(page.auth.saveUser(page.editingId,name.text,login.text,password.text,role.currentIndex ? "admin" : "operator",active.checked)) page.edit({}); password.clear() } }
+        Button { visible: page.editingId > 0 && role.currentIndex === 1; text: "Código de recuperação"; onClicked: page.auth.issueRecoveryCode(page.editingId) }
         Button { text: "Limpar"; onClicked: page.edit({}) }
     }
     Label { text: page.auth.message; Layout.fillWidth: true; wrapMode: Text.Wrap }
+    Label { visible: page.auth.recoveryCode.length > 0; text: "Guarde este código e entregue-o ao administrador por canal seguro. Ele redefine a senha dessa conta e será exibido somente agora; gerar outro invalida este."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+    TextArea { visible: page.auth.recoveryCode.length > 0; text: page.auth.recoveryCode; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; Layout.fillWidth: true }
+    Button { visible: page.auth.recoveryCode.length > 0; text: "Guardei o código"; onClicked: page.auth.dismissRecovery() }
     ListView {
         Layout.fillHeight: true; Layout.fillWidth: true; clip: true
         model: page.auth.users
@@ -42,4 +46,5 @@ ColumnLayout {
         ScrollBar.vertical: ScrollBar {}
     }
     Label { text: "Seu próprio cadastro deve ser alterado por outro administrador. Redefinir/editar um usuário invalida suas sessões e seu código de recuperação."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+    Label { text: "Administradores adicionais recebem código de recuperação por outro administrador, em “Código de recuperação”, ao editar a conta."; Layout.fillWidth: true; wrapMode: Text.Wrap }
 }

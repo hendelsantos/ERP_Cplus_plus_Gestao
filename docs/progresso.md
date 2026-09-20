@@ -229,3 +229,19 @@ Data: 20/09/2026. Item “Troca da própria senha, exigindo a senha atual” da 
 - Teste de interface (`ui_test.cpp`): diálogo abre pelo botão, tentativa com senha atual errada mantém a sessão e exibe mensagem, alteração bem-sucedida encerra o diálogo e mantém a sessão, logout e novo login rejeitam a senha antiga e aceitam a nova. Captura gerada sem avisos QML.
 
 Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; diálogo conferido por captura em 960 × 640 (`password.png`). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.
+
+
+## Continuação — código de recuperação para administradores adicionais
+
+Data: 20/09/2026. Item “Emissão/rotação de código de recuperação para administradores adicionais” da Etapa 1 em `ESTRUTURA_DO_PROJETO.md` marcado como concluído.
+
+- `Auth::issueRecoveryCode(id)` em `core/auth`: administrador autenticado gera código aleatório de 32 bytes para outra conta de administrador ativa. Somente o hash SHA-256 é persistido; o código é exibido uma vez ao emissor.
+- Emissão em transação com exigência de exatamente uma linha afetada; substitui e invalida o código anterior da conta. Emitir para a própria conta, operador, conta inativa ou inexistente é rejeitado.
+- Botão **Código de recuperação** em **Usuários**, ao editar outro administrador; código exibido com aviso de entrega por canal seguro e confirmação de guarda, como no primeiro acesso.
+- A recuperação existente já aceitava qualquer administrador ativo com código válido; agora existem códigos para administradores adicionais e o comportamento está coberto por testes.
+- Editar/redefinir a conta pela administração continua invalidando o código; uso do código na recuperação continua rotacionando-o e invalidando o anterior.
+- Sem migração: banco e backups permanecem no esquema 6.
+- Testes de serviço (`pos_test.cpp`, `recoveryCodeIssuance`): permissão de operador negada, alvos inválidos (inexistente, operador, própria conta, inativo), código com 64 caracteres e somente hash persistido, reemissão invalida o anterior, recuperação pelo código emitido com rotação, edição administrativa limpando o código, recuperação de conta inativa rejeitada, reativação e persistência após reabrir o banco.
+- Teste de interface (`ui_test.cpp`): criação de segundo administrador, emissão pela tela **Usuários**, exibição e descarte do código, recuperação pela tela de login com o código emitido, login com a senha redefinida e descarte do código rotacionado. Capturas sem avisos QML.
+
+Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; telas conferidas por captura em 960 × 640 (`recovery-code.png`, `recovery-rotated.png`). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.

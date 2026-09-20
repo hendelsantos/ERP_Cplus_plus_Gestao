@@ -180,4 +180,18 @@ bool Auth::recover(const QString &login,const QString &code,const QString &passw
     if(!q.exec() || !tx.commit()) return fail("Não foi possível recuperar o acesso.");
     m_recovery=replacement; m_message="Senha redefinida. Guarde o novo código; o anterior foi invalidado."; emit changed(); return true;
 }
+bool Auth::issueRecoveryCode(int id) {
+    if (!allowed("users")) return fail("Sem permissão para gerar código de recuperação.");
+    if (id==userId()) return fail("Para sua conta, guarde o código recebido no primeiro acesso ou troque a senha.");
+    const auto token=randomBytes(32);
+    if (token.isEmpty()) return fail("Falha ao gerar código seguro.");
+    const auto code=QString::fromLatin1(token.toHex());
+    Transaction tx; if (!tx.begin()) return fail("Banco ocupado.");
+    QSqlQuery q;
+    q.prepare("UPDATE users SET recovery_hash=? WHERE id=? AND role='admin' AND active=1");
+    q.addBindValue(QCryptographicHash::hash(code.toUtf8(),QCryptographicHash::Sha256)); q.addBindValue(id);
+    if (!q.exec() || q.numRowsAffected()!=1 || !tx.commit()) return fail("Código não gerado. Confirme um administrador ativo que não seja você.");
+    m_recovery=code; m_message="Código de recuperação gerado. O anterior foi invalidado; entregue-o ao administrador por canal seguro.";
+    emit changed(); return true;
+}
 }

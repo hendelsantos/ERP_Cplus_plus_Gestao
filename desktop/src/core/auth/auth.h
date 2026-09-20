@@ -26,6 +26,7 @@ public:
     Q_INVOKABLE bool changePassword(const QString &currentPassword,const QString &newPassword,const QString &confirmation);
     Q_INVOKABLE bool saveUser(int id,const QString &name,const QString &login,const QString &password,const QString &role,bool active);
     Q_INVOKABLE bool recover(const QString &login,const QString &code,const QString &password);
+    Q_INVOKABLE bool issueRecoveryCode(int id);
     Q_INVOKABLE void dismissRecovery() { m_recovery.clear(); emit changed(); }
     Q_INVOKABLE bool can(const QString &permission) const { return allowed(permission); }
     static bool allowed(const QString &permission);
