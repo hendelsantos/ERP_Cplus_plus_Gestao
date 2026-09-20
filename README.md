@@ -6,7 +6,7 @@ ERP desktop offline-first da MHSoftware, construído com C++20, Qt 6, QML e SQLi
 
 ## Estado atual
 
-Cadastros básicos de **produtos, categorias e clientes**, com busca, edição e inativação/reativação. **Estoque** com entradas, saídas, ajustes por contagem, filtro de saldo crítico e histórico. Os dados são persistidos localmente. **Caixa e PDV básicos** com abertura, suprimento/sangria, carrinho, pagamento, baixa de estoque e fechamento. Dashboard com indicadores reais de vendas, estoque e caixa; os demais módulos seguem pendentes.
+Cadastros básicos de **produtos, categorias, clientes e fornecedores**, com busca, edição e inativação/reativação; produtos podem ser vinculados a um fornecedor. **Estoque** com entradas, saídas, ajustes por contagem, filtro de saldo crítico e histórico. Os dados são persistidos localmente. **Caixa e PDV básicos** com abertura, suprimento/sangria, carrinho, pagamento, baixa de estoque e fechamento. Dashboard com indicadores reais de vendas, estoque e caixa; os demais módulos seguem pendentes.
 
 Siga a [estrutura e roteiro do projeto](ESTRUTURA_DO_PROJETO.md) para orientar as próximas entregas.
 
@@ -51,9 +51,10 @@ O banco `mhstore.sqlite` é criado no diretório de dados da aplicação, resolv
 ## Usar os cadastros
 
 1. Abra **Categorias** e cadastre uma categoria.
-2. Em **Produtos**, clique em **Novo cadastro**, informe nome, código interno e valores, e salve.
+2. Em **Produtos**, clique em **Novo cadastro**, informe nome, código interno e valores, e salve. O **Fornecedor** é opcional; fornecedores inativos deixam de ser oferecidos, mas vínculos existentes são preservados.
 3. Em **Clientes**, cadastre nome e os contatos desejados.
-4. Use a busca e **Editar** para consultar e alterar registros. **Mostrar inativos** permite localizar e reativar cadastros.
+4. Em **Fornecedores**, cadastre nome e, se houver, documento (único), telefone e e-mail. Vários fornecedores podem ficar sem documento.
+5. Use a busca e **Editar** para consultar e alterar registros. **Mostrar inativos** permite localizar e reativar cadastros.
 
 Valores aceitam vírgula ou ponto decimal, sem separador de milhar.
 
@@ -126,7 +127,7 @@ Para restaurar:
 4. O sistema verifica integridade, vínculos e compatibilidade, cria uma cópia `antes_restauracao_*.mhb` na subpasta `backups` do diretório de dados e restaura em transação.
 5. Após o sucesso, o aplicativo fecha. Abra novamente com `./scripts/dev.sh run`.
 
-Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **7**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
+Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **8**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
 
 Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Agendamento automático, compactação, backup em nuvem e migração automática de backups antigos seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
 
@@ -157,7 +158,7 @@ Abra **Configurações → Empresa e módulos** para salvar o nome da empresa, p
 
 O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos é separada das permissões dos usuários. Autenticação local já está disponível; licenciamento permanece pendente.
 
-A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 7; backups das versões 4, 5 e 6 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
+A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 8; backups das versões 4 a 7 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
 
 
 O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Veja a versão atual do esquema e a compatibilidade na seção de backup.
@@ -185,6 +186,6 @@ As permissões são verificadas no C++. Após cinco tentativas inválidas, a con
 
 **Auditoria**, no menu lateral do administrador, lista as alterações administrativas no momento em que ocorreram: usuários criados/alterados, senhas trocadas, códigos de recuperação emitidos e configurações de empresa/módulos. Cada registro mostra o responsável, o alvo, os detalhes e o horário local; senhas e códigos nunca são gravados. A listagem é paginada e a consulta é restrita a administradores.
 
-A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa. Backups incluem usuários, credenciais protegidas e auditoria; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 7 não têm restauração direta.
+A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 8 não têm restauração direta.
 
 Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iterações via OpenSSL. O código de recuperação tem 256 bits aleatórios e somente seu hash é persistido. Detalhes e limites: [autenticação local](docs/autenticacao.md).

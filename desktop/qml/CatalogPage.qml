@@ -25,8 +25,7 @@ ColumnLayout {
             Layout.fillWidth: true
             placeholderText: page.section === "Produtos" ? "Buscar por nome, código ou código de barras" : "Buscar por nome, código, documento ou telefone"
             onTextChanged: page.reload()
-        }
-        CheckBox { id: inactive; text: "Mostrar inativos"; onToggled: page.reload() }
+        }        CheckBox { id: inactive; text: "Mostrar inativos"; onToggled: page.reload() }
         Button { text: "Novo cadastro"; onClicked: editor.openRecord({}) }
     }
     Label {
@@ -63,7 +62,8 @@ ColumnLayout {
                         color: "#6d7781"
                         text: page.section === "Produtos"
                             ? modelData.code + "  |  R$ " + Number(modelData.sale_price).toLocaleString(Qt.locale("pt_BR"), 'f', 2) + "  |  Estoque: " + modelData.stock_quantity
-                            : page.section === "Clientes" ? [modelData.document, modelData.phone, modelData.email].filter(function(v) { return v }).join("  |  ") : "Código: " + modelData.id
+                            : page.section === "Categorias" ? "Código: " + modelData.id
+                            : [modelData.document, modelData.phone, modelData.email].filter(function(v) { return v }).join("  |  ")
                     }
                 }
                 Button { text: "Compras"; visible: page.section === "Clientes"; onClicked: page.customerHistoryRequested(modelData.id) }
@@ -80,6 +80,7 @@ ColumnLayout {
         id: editor
         property int recordId: 0
         property var categoryOptions: []
+        property var supplierOptions: []
         parent: Overlay.overlay
         anchors.centerIn: parent
         width: Math.min(560, parent.width - 32)
@@ -103,6 +104,10 @@ ColumnLayout {
             categoryField.currentIndex = 0
             for (var i = 0; i < categoryOptions.length; ++i)
                 if (categoryOptions[i].id === row.category_id) categoryField.currentIndex = i
+            supplierOptions = [{id: 0, name: "Sem fornecedor"}].concat(page.catalog.suppliers.filter(function(s) { return s.active || s.id === row.supplier_id }))
+            supplierField.currentIndex = 0
+            for (var j = 0; j < supplierOptions.length; ++j)
+                if (supplierOptions[j].id === row.supplier_id) supplierField.currentIndex = j
             formError.text = ""
             open()
             nameField.forceActiveFocus()
@@ -123,6 +128,8 @@ ColumnLayout {
                 }
                 Label { visible: page.section === "Produtos"; text: "Categoria" }
                 ComboBox { id: categoryField; visible: page.section === "Produtos"; Layout.fillWidth: true; model: editor.categoryOptions; textRole: "name" }
+                Label { visible: page.section === "Produtos"; text: "Fornecedor" }
+                ComboBox { id: supplierField; objectName: "supplierField"; visible: page.section === "Produtos"; Layout.fillWidth: true; model: editor.supplierOptions; textRole: "name" }
                 Label { visible: page.section === "Produtos"; text: "Custo (R$) / venda (R$) / estoque mínimo" }
                 RowLayout {
                     visible: page.section === "Produtos"
@@ -131,12 +138,12 @@ ColumnLayout {
                     TextField { id: minimumField; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
                 }
                 Label { visible: page.section === "Produtos"; text: "Use o módulo Estoque para registrar entradas, saídas e ajustes."; wrapMode: Text.Wrap; Layout.fillWidth: true; color: "#6d7781" }
-                Label { visible: page.section === "Clientes"; text: "CPF/CNPJ (opcional)" }
-                TextField { id: documentField; visible: page.section === "Clientes"; Layout.fillWidth: true }
-                Label { visible: page.section === "Clientes"; text: "Telefone" }
-                TextField { id: phoneField; visible: page.section === "Clientes"; Layout.fillWidth: true }
-                Label { visible: page.section === "Clientes"; text: "E-mail" }
-                TextField { id: emailField; visible: page.section === "Clientes"; Layout.fillWidth: true }
+                Label { visible: page.section === "Clientes" || page.section === "Fornecedores"; text: page.section === "Clientes" ? "CPF/CNPJ (opcional)" : "CPF/CNPJ (opcional, único)" }
+                TextField { id: documentField; objectName: "documentField"; visible: page.section === "Clientes" || page.section === "Fornecedores"; Layout.fillWidth: true }
+                Label { visible: page.section === "Clientes" || page.section === "Fornecedores"; text: "Telefone" }
+                TextField { id: phoneField; objectName: "phoneField"; visible: page.section === "Clientes" || page.section === "Fornecedores"; Layout.fillWidth: true }
+                Label { visible: page.section === "Clientes" || page.section === "Fornecedores"; text: "E-mail" }
+                TextField { id: emailField; objectName: "emailField"; visible: page.section === "Clientes" || page.section === "Fornecedores"; Layout.fillWidth: true }
                 Label { id: formError; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
             }
         }
@@ -148,6 +155,7 @@ ColumnLayout {
                         name: nameField.text, code: codeField.text, barcode: barcodeField.text,
                         cost_price: costField.text, sale_price: priceField.text, minimum_stock: minimumField.text,
                         category_id: editor.categoryOptions[categoryField.currentIndex].id,
+                        supplier_id: editor.supplierOptions[supplierField.currentIndex].id,
                         document: documentField.text, phone: phoneField.text, email: emailField.text
                     })
                     if (ok) editor.close()

@@ -277,3 +277,19 @@ Data: 20/09/2026. Item “Registrar auditoria das alterações de usuários e pe
 - Teste de interface (`ui_test.cpp`): tela **Auditoria** acessada pelo menu, quatro registros do fluxo administrativo (dois usuários criados, troca de senha, código emitido) na ordem correta, sem paginação pendente; três gravações de configurações conferidas no segundo fluxo. Captura sem avisos QML.
 
 Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; tela conferida por captura em 960 × 640 (`audit.png`). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.
+
+
+## Continuação — fornecedores e vínculo com produtos
+
+Data: 20/09/2026. Item “Cadastro de fornecedores e vínculos necessários” da Etapa 2 em `ESTRUTURA_DO_PROJETO.md` marcado como concluído.
+
+- Migração 8: tabela `suppliers` (nome obrigatório, documento único quando informado, telefone, e-mail, ativo) e coluna `products.supplier_id` com vínculo opcional por FK.
+- Módulo de cadastros estendido: seção **Fornecedores** com inclusão, edição, busca por nome/documento/telefone (com escapes), inativação/reativação e listagem no menu. Documento vazio é gravado como nulo, permitindo vários fornecedores sem documento.
+- Produto ganha seletor **Fornecedor** opcional no formulário; fornecedores inativos deixam de ser oferecidos em novos vínculos, e vínculos existentes são preservados, como nas categorias. Vínculo com fornecedor inexistente é rejeitado pela FK.
+- Permissões pela matriz existente: salvar/inativar exige `catalog`; consulta exige sessão.
+- Backup: restauração direta passa a exigir esquema 8; backups 7 são rejeitados sem conversão automática.
+- Fixture de testes (`auth_fixture.h`) rebaixa também fornecedores e a migração 8 nos testes de upgrade, mantendo-os válidos.
+- Testes de serviço (`catalog_test.cpp`): `suppliersWorkflow` (nome vazio, documento duplicado, múltiplos sem documento, busca, edição, inativação/reativação, persistência após reabrir), `productSupplierLink` (vincular, trocar, desvincular, fornecedor inexistente rejeitado, vínculo preservado com fornecedor inativo) e `upgradeFromVersionSeven` (banco da versão anterior atualizado com produto preservado e vínculo funcional após a migração).
+- Teste de interface (`ui_test.cpp`): criação de fornecedor pela tela **Fornecedores**, criação de produto com fornecedor selecionado no formulário e vínculo persistido. Capturas sem avisos QML.
+
+Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; telas conferidas por captura em 960 × 640 (`suppliers.png`, `catalog.png` com o seletor de fornecedor). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.

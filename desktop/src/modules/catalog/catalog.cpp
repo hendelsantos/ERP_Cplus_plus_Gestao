@@ -13,6 +13,7 @@ QString tableFor(const QString &section)
     if (section == QStringLiteral("Produtos")) return QStringLiteral("products");
     if (section == QStringLiteral("Clientes")) return QStringLiteral("customers");
     if (section == QStringLiteral("Categorias")) return QStringLiteral("categories");
+    if (section == QStringLiteral("Fornecedores")) return QStringLiteral("suppliers");
     return {};
 }
 QVariantList records(QSqlQuery &query)
@@ -48,17 +49,22 @@ void Catalog::search(const QString &section, const QString &text, bool includeIn
 
 void Catalog::refresh()
 {
-    if (!Auth::allowed("read")) { m_rows.clear(); m_categories.clear(); emit changed(); return; }
+    if (!Auth::allowed("read")) { m_rows.clear(); m_categories.clear(); m_suppliers.clear(); emit changed(); return; }
     m_error.clear();
     QSqlQuery categories;
     if (!categories.exec(QStringLiteral("SELECT id, name, active FROM categories ORDER BY name COLLATE NOCASE"))) {
         fail(categories.lastError().text()); return;
     }
     m_categories = records(categories);
+    QSqlQuery suppliers;
+    if (!suppliers.exec(QStringLiteral("SELECT id, name, active FROM suppliers ORDER BY name COLLATE NOCASE"))) {
+        fail(suppliers.lastError().text()); return;
+    }
+    m_suppliers = records(suppliers);
     QString filter = QStringLiteral("name LIKE :term ESCAPE '\\' OR CAST(id AS TEXT) = :exact");
     if (m_section == QStringLiteral("Produtos"))
         filter += QStringLiteral(" OR code LIKE :term ESCAPE '\\' OR barcode LIKE :term ESCAPE '\\'");
-    if (m_section == QStringLiteral("Clientes"))
+    if (m_section == QStringLiteral("Clientes") || m_section == QStringLiteral("Fornecedores"))
         filter += QStringLiteral(" OR document LIKE :term ESCAPE '\\' OR phone LIKE :term ESCAPE '\\'");
     QSqlQuery query;
     query.prepare(QStringLiteral("SELECT * FROM %1 WHERE (%2) %3 ORDER BY name COLLATE NOCASE")
@@ -99,8 +105,16 @@ bool Catalog::save(const QString &section, int id, const QVariantMap &values)
         data.insert("sale_price_cents", qRound64(data.value("sale_price").toDouble() * 100));
         const int category = values.value("category_id").toInt();
         data.insert("category_id", category > 0 ? QVariant(category) : QVariant());
+        const int supplier = values.value("supplier_id").toInt();
+        data.insert("supplier_id", supplier > 0 ? QVariant(supplier) : QVariant());
     } else if (table == "customers") {
         for (const auto &field : {"document", "phone", "email"})
+            data.insert(field, values.value(field).toString().trimmed());
+    } else if (table == "suppliers") {
+        // Unique document: empty input becomes NULL so it never collides.
+        const auto document = values.value("document").toString().trimmed();
+        data.insert("document", document.isEmpty() ? QVariant() : QVariant(document));
+        for (const auto &field : {"phone", "email"})
             data.insert(field, values.value(field).toString().trimmed());
     }
     QStringList fields, placeholders, assignments;
@@ -117,7 +131,7 @@ bool Catalog::save(const QString &section, int id, const QVariantMap &values)
     if (id != 0) query.bindValue(":id", id);
     if (!query.exec()) {
         if (query.lastError().nativeErrorCode() == "19" || query.lastError().text().contains("UNIQUE"))
-            return fail(QStringLiteral("Código ou categoria já cadastrado, ou categoria inválida. Verifique os dados."));
+            return fail(QStringLiteral("Código, categoria ou documento já cadastrado, ou vínculo inválido. Verifique os dados."));
         return fail(query.lastError().text());
     }
     if (query.numRowsAffected() != 1) return fail(QStringLiteral("Registro não encontrado."));

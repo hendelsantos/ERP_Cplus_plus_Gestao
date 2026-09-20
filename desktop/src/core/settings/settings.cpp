@@ -23,7 +23,8 @@ const QList<Module> &registry() {
         {"products","Produtos",false,{}},
         {"categories","Categorias",false,{}},
         {"inventory","Estoque",true,{}},
-        {"customers","Clientes",false,{}}
+        {"customers","Clientes",false,{}},
+        {"suppliers","Fornecedores",false,{}}
     };
     return entries;
 }

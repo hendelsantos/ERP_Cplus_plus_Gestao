@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 7) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 8) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -111,6 +111,10 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("CREATE TABLE audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id), user_name TEXT NOT NULL CHECK(length(user_name) > 0), action TEXT NOT NULL CHECK(length(action) > 0), target TEXT NOT NULL CHECK(length(target) > 0), details TEXT NOT NULL CHECK(length(details) > 0), created_at TEXT NOT NULL CHECK(length(created_at) > 0))"),
         QStringLiteral("CREATE INDEX audit_log_recent ON audit_log(id DESC)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (7)")
+    }, {
+        QStringLiteral("CREATE TABLE suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL CHECK(length(trim(name)) > 0), document TEXT UNIQUE, phone TEXT, email TEXT, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (8)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

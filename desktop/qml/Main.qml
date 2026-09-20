@@ -26,7 +26,7 @@ ApplicationWindow {
         repeat: true
         onTriggered: posStore.refreshDashboard()
     }
-    readonly property bool isCatalog: ["Produtos", "Categorias", "Clientes"].indexOf(activeSection) >= 0
+    readonly property bool isCatalog: ["Produtos", "Categorias", "Clientes", "Fornecedores"].indexOf(activeSection) >= 0
     property color ink: "#18212b"
     property color muted: "#6d7781"
     property color accent: "#0e7490"

@@ -39,7 +39,7 @@ Alterações administrativas são auditadas na mesma transação em que ocorrem:
 
 IDs e nomes autenticados são gravados em vendas, estoque, caixa e fechamento; isso não constitui um log completo de auditoria de cadastros e administração.
 
-O esquema 7 acrescenta a auditoria administrativa. Recuperação de backup encerra sessão; contas, credenciais e auditoria voltam ao estado do backup. Restauração direta aceita somente esquema idêntico na versão 7.
+O esquema 7 acrescenta a auditoria administrativa. Recuperação de backup encerra sessão; contas, credenciais e auditoria voltam ao estado do backup. Restauração direta aceita somente esquema idêntico na versão 8.
 
 ## Limites e próximas melhorias
 

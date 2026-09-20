@@ -74,7 +74,7 @@ PDV_offline_First_C++/
 └── README.md
 ```
 
-Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto e CMake. Banco atual: **esquema 7**. Restauração direta exige esquema idêntico e versão 7.
+Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto e CMake. Banco atual: **esquema 8**. Restauração direta exige esquema idêntico e versão 8.
 
 ## 5. Estado dos módulos
 
@@ -85,7 +85,7 @@ Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto
 | Empresa e módulos | Base disponível | Ampliar configurações conforme os novos módulos |
 | Usuários e acesso offline | Base disponível: administrador/operador, troca da própria senha e recuperação para todos os administradores | Permissões configuráveis |
 | Produtos, categorias e clientes | Base disponível | Campos complementares e requisitos por segmento |
-| Fornecedores | Pendente | Cadastro, busca, status e vínculos com produtos/compras |
+| Fornecedores | Base disponível: cadastro e vínculo produto ↔ fornecedor | Contatos adicionais, compras e custo por fornecedor |
 | Estoque | Base disponível | Inventário em lote e custo médio |
 | PDV | Base disponível | Desconto/acréscimo, pagamento dividido e quantidade fracionada |
 | Caixa | Base disponível | Ampliar conferência e relatórios |
@@ -108,6 +108,7 @@ As operações de venda, estoque e caixa já gravam o usuário autenticado. Isso
 | Caixa | Módulo habilitado e usuário autorizado |
 | Usuários, configurações e backup | Administrador |
 | Consulta da auditoria administrativa | Administrador |
+| Fornecedores e vínculo de produto | Permissão `catalog` (administrador); consulta para perfis autenticados |
 | Consultas operacionais | Usuário autenticado; ambos os perfis atuais podem consultar |
 | Alterar módulos | Caixa fechado e carrinho vazio |
 | Restaurar backup | Administrador, caixa fechado, carrinho vazio e backup compatível |
@@ -142,7 +143,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ### Etapa 2 — Completar cadastros e rastreabilidade
 
-- [ ] Cadastro de fornecedores e vínculos necessários.
+- [x] Cadastro de fornecedores e vínculos necessários. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
 - [ ] Campos complementares de empresa, clientes e produtos.
 - [ ] Auditoria de alterações e inativações relevantes.
 
@@ -198,17 +199,16 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ## 8. Próxima tarefa concreta
 
-**Cadastro de fornecedores e vínculos necessários** (Etapa 2).
+**Campos complementares de empresa, clientes e produtos** (Etapa 2).
 
 Escopo:
 
-1. Cadastro de fornecedores com nome obrigatório e identificador único (documento/contato), busca, edição, inativação/reativação e paginação, seguindo o padrão dos cadastros existentes.
-2. Definir e implementar os vínculos necessários nesta fase (por exemplo, produto ↔ fornecedor) com migração 8, avaliando impacto em backup: restauração direta passa a exigir esquema 8.
-3. Permissão pela matriz existente (`catalog`), reutilizando o controle de acesso já testado.
-4. Tela em **Cadastros** com o mesmo comportamento das demais seções.
-5. Testes de serviço e interface, incluindo migração de banco anterior; atualizar documentação e ponto de continuidade.
+1. Levantar os campos complementares já especificados no [plano completo](MH_Store_ERP_Plano_Completo.md) para empresa, clientes e produtos e selecionar os que a base comum realmente exige nesta fase.
+2. Migração 9 com os campos escolhidos, sem perda de dados existentes; restauração direta passa a exigir esquema 9.
+3. Formulários e validações no C++ seguindo o padrão atual; campos opcionais não podem quebrar cadastros existentes.
+4. Testes de serviço e interface, incluindo migração de banco anterior; atualizar documentação e ponto de continuidade.
 
-Campos complementares de produtos/clientes e auditoria de cadastros ficam para os próximos itens da Etapa 2. Não alterar o banco real para executar testes.
+Auditoria de alterações de cadastros permanece para o item seguinte da Etapa 2. Não alterar o banco real para executar testes.
 
 ## 9. Critério de conclusão de cada entrega
 

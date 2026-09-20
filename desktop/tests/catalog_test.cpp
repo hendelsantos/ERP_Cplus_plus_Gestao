@@ -10,6 +10,18 @@
 class CatalogTest : public QObject
 {
     Q_OBJECT
+    int productId(const QString &code) {
+        QSqlQuery query;
+        query.prepare("SELECT id FROM products WHERE code=?");
+        query.addBindValue(code);
+        return query.exec() && query.next() ? query.value(0).toInt() : 0;
+    }
+    int supplierOf(const QString &code) {
+        QSqlQuery query;
+        query.prepare("SELECT supplier_id FROM products WHERE code=?");
+        query.addBindValue(code);
+        return query.exec() && query.next() ? query.value(0).toInt() : -1;
+    }
 private slots:
     void workflow()
     {
@@ -76,7 +88,114 @@ private slots:
         QSqlDatabase::database().close();
         QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
     }
+    void suppliersWorkflow()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto path = directory.filePath("fornecedores.sqlite");
+        MHStore::Database::DatabaseManager database;
+        QString error;
+        QVERIFY2(database.initialize(&error, path), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
+        {
+            MHStore::Catalog catalog;
+            QVERIFY(!catalog.save("Fornecedores", 0, {{"name", " "}}));
+            QVERIFY(catalog.save("Fornecedores", 0, {{"name", "Confecção Sul"}, {"document", "12345678000199"}, {"phone", "5433221100"}, {"email", "vendas@confeccaosul.example"}}));
+            QVERIFY(!catalog.save("Fornecedores", 0, {{"name", "Outra Empresa"}, {"document", "12345678000199"}}));
+            QVERIFY(catalog.save("Fornecedores", 0, {{"name", "Distribuidora Norte"}}));
+            QVERIFY(catalog.save("Fornecedores", 0, {{"name", "Sem Documento Irmã"}}));
+            QCOMPARE(catalog.suppliers().size(), 3);
+            catalog.search("Fornecedores", "3322");
+            QCOMPARE(catalog.rows().size(), 1);
+            QCOMPARE(catalog.rows().first().toMap().value("name").toString(), QString("Confecção Sul"));
+            catalog.search("Fornecedores", "78000199");
+            QCOMPARE(catalog.rows().size(), 1);
+            catalog.search("Fornecedores", "norte");
+            QCOMPARE(catalog.rows().size(), 1);
+            const int id = catalog.rows().first().toMap().value("id").toInt();
+            catalog.search("Fornecedores", "%");
+            QCOMPARE(catalog.rows().size(), 0);
+            QVERIFY(catalog.save("Fornecedores", id, {{"name", "Distribuidora Norte S.A."}, {"phone", "1155551234"}}));
+            catalog.search("Fornecedores", "", true);
+            QCOMPARE(catalog.rows().size(), 3);
+            QVERIFY(catalog.setActive("Fornecedores", id, false));
+            catalog.search("Fornecedores");
+            QCOMPARE(catalog.rows().size(), 2);
+            QVERIFY(catalog.setActive("Fornecedores", id, true));
+            QVERIFY(!catalog.setActive("Fornecedores", 99999, false));
+            QVERIFY(!catalog.save("Seção", 0, {{"name", "Inválida"}}));
+        }
+        QSqlDatabase::database().close();
+        QVERIFY2(database.initialize(&error, path), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
+        {
+            MHStore::Catalog catalog;
+            catalog.search("Fornecedores", "1155551234");
+            QCOMPARE(catalog.rows().size(), 1);
+            QCOMPARE(catalog.rows().first().toMap().value("name").toString(), QString("Distribuidora Norte S.A."));
+            catalog.search("Fornecedores");
+            QCOMPARE(catalog.rows().size(), 3);
+        }
+        QSqlDatabase::database().close();
+        QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+    }
+    void productSupplierLink()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        MHStore::Database::DatabaseManager database;
+        QString error;
+        QVERIFY2(database.initialize(&error, directory.filePath("vinculo.sqlite")), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
+        MHStore::Catalog catalog;
+        QVERIFY(catalog.save("Fornecedores", 0, {{"name", "Confecção Sul"}}));
+        QVERIFY(catalog.save("Fornecedores", 0, {{"name", "Tecelagem Leste"}}));
+        const int first = catalog.suppliers().first().toMap().value("id").toInt();
+        const int second = catalog.suppliers().last().toMap().value("id").toInt();
+        QVERIFY(catalog.save("Produtos", 0, {{"name", "Camiseta"}, {"code", "CAM-01"}, {"cost_price", "10"}, {"sale_price", "20"}, {"minimum_stock", "1"}, {"supplier_id", first}}));
+        QCOMPARE(supplierOf("CAM-01"), first);
+        QVERIFY(catalog.save("Produtos", productId("CAM-01"), {{"name", "Camiseta"}, {"code", "CAM-01"}, {"cost_price", "10"}, {"sale_price", "20"}, {"minimum_stock", "1"}, {"supplier_id", second}}));
+        QCOMPARE(supplierOf("CAM-01"), second);
+        QVERIFY(catalog.save("Produtos", productId("CAM-01"), {{"name", "Camiseta"}, {"code", "CAM-01"}, {"cost_price", "10"}, {"sale_price", "20"}, {"minimum_stock", "1"}, {"supplier_id", 0}}));
+        QCOMPARE(supplierOf("CAM-01"), 0);
+        QVERIFY(!catalog.save("Produtos", productId("CAM-01"), {{"name", "Camiseta"}, {"code", "CAM-01"}, {"cost_price", "10"}, {"sale_price", "20"}, {"minimum_stock", "1"}, {"supplier_id", 99999}}));
+        QVERIFY(catalog.save("Produtos", productId("CAM-01"), {{"name", "Camiseta"}, {"code", "CAM-01"}, {"cost_price", "10"}, {"sale_price", "20"}, {"minimum_stock", "1"}, {"supplier_id", first}}));
+        QVERIFY(catalog.setActive("Fornecedores", first, false));
+        QCOMPARE(supplierOf("CAM-01"), first);
+        catalog.search("Produtos", "CAM-01");
+        QCOMPARE(catalog.rows().first().toMap().value("supplier_id").toInt(), first);
+        QSqlDatabase::database().close();
+        QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+    }
+    void upgradeFromVersionSeven()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto path = directory.filePath("versao7.sqlite");
+        MHStore::Database::DatabaseManager database;
+        QString error;
+        QVERIFY2(database.initialize(&error, path), qPrintable(error));
+        QVERIFY(authenticateTestAdmin());
+        QSqlQuery query;
+        QVERIFY(query.exec("INSERT INTO products(code,name,sale_price,sale_price_cents) VALUES('ANTIGO','Produto Antigo',9.99,999)"));
+        QVERIFY(query.exec("ALTER TABLE products DROP COLUMN supplier_id"));
+        QVERIFY(query.exec("DROP TABLE suppliers"));
+        QVERIFY(query.exec("DELETE FROM schema_migrations WHERE version=8"));
+        QVERIFY2(database.initialize(&error, path), qPrintable(error));
+        QVERIFY(query.exec("SELECT COUNT(*) FROM schema_migrations WHERE version=8"));
+        QVERIFY(query.next());
+        QCOMPARE(query.value(0).toInt(), 1);
+        QVERIFY(query.exec("SELECT name FROM products WHERE code='ANTIGO'"));
+        QVERIFY(query.next());
+        QCOMPARE(query.value(0).toString(), QString("Produto Antigo"));
+        QVERIFY(authenticateTestAdmin());
+        MHStore::Catalog catalog;
+        QVERIFY(catalog.suppliers().isEmpty());
+        QVERIFY(catalog.save("Fornecedores", 0, {{"name", "Fornecedor Pós-Migração"}}));
+        QVERIFY(catalog.save("Produtos", productId("ANTIGO"), {{"name", "Produto Antigo"}, {"code", "ANTIGO"}, {"cost_price", "5"}, {"sale_price", "9,99"}, {"minimum_stock", "0"}, {"supplier_id", catalog.suppliers().first().toMap().value("id").toInt()}}));
+        QCOMPARE(supplierOf("ANTIGO"), catalog.suppliers().first().toMap().value("id").toInt());        QSqlDatabase::database().close();
+        QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+    }
 };
-
 QTEST_GUILESS_MAIN(CatalogTest)
 #include "catalog_test.moc"
