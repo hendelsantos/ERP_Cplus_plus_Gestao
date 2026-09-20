@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 18) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 19) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -173,6 +173,9 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("CREATE TABLE service_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL REFERENCES customers(id), service_id INTEGER NOT NULL REFERENCES products(id), description TEXT NOT NULL CHECK(length(trim(description)) > 0), notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','completed','cancelled')), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, user_id INTEGER REFERENCES users(id))"),
         QStringLiteral("CREATE INDEX service_orders_status ON service_orders(status, id DESC)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (18)")
+    }, {
+        QStringLiteral("CREATE TABLE service_order_materials (order_id INTEGER NOT NULL REFERENCES service_orders(id), product_id INTEGER NOT NULL REFERENCES products(id), quantity REAL NOT NULL CHECK(quantity > 0), consumed INTEGER NOT NULL DEFAULT 0 CHECK(consumed IN (0,1)), PRIMARY KEY(order_id, product_id))"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (19)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

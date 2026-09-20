@@ -23,7 +23,8 @@ inline bool removeAdjustmentMigration() {
         if (!q.exec(QString("ALTER TABLE products DROP COLUMN %1").arg(column))) return false;
     if (!q.exec("ALTER TABLE products DROP COLUMN product_type")) return false;
     if (!q.exec("DROP TABLE IF EXISTS service_orders")) return false;
-    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14,15,16,17,18)");
+    if (!q.exec("DROP TABLE IF EXISTS service_order_materials")) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13,14,15,16,17,18,19)");
 }
 inline bool removeComplementaryMigration() {
     if (!removeAdjustmentMigration()) return false;

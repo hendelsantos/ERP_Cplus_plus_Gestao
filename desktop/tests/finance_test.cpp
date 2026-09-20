@@ -70,6 +70,19 @@ private slots:
         QVERIFY(!finance.updateServiceOrder(1, "invalid"));
         QVERIFY(!finance.createServiceOrder(1, 999, "Falha", ""));
     }
+    void serviceOrderConsumesMaterialsAtomically() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO customers(name) VALUES('Cliente Material')"));
+        QVERIFY(q.exec("INSERT INTO products(code,name,sale_price_cents,product_type,active,stock_quantity) VALUES('SRV-2','Instalação',5000,'service',1,0),('MAT-1','Peça',1000,'product',1,3)"));
+        MHStore::Finance finance;
+        QVERIFY(finance.createServiceOrder(1, 1, "Instalação", "Usar peça"));
+        QVERIFY(finance.addServiceMaterial(1, 2, "2"));
+        QVERIFY(finance.updateServiceOrder(1, "completed"));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=2").toDouble(), 1.0);
+        QCOMPARE(scalar("SELECT consumed FROM service_order_materials WHERE order_id=1").toInt(), 1);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM inventory_movements").toInt(), 1);
+        QVERIFY(!finance.addServiceMaterial(1, 2, "1"));
+    }
 };
 QTEST_GUILESS_MAIN(FinanceTest)
 #include "finance_test.moc"

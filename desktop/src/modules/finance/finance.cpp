@@ -8,6 +8,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
+#include <cmath>
 
 namespace MHStore {
 namespace {
@@ -65,10 +66,49 @@ bool Finance::createServiceOrder(int customerId, int serviceId, const QString &d
 bool Finance::updateServiceOrder(int orderId, const QString &status) {
     if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem atualizar ordens de serviço.");
     if (!QStringList{"open","in_progress","completed","cancelled"}.contains(status)) return fail("Status de ordem de serviço inválido.");
-    QSqlQuery query;
+    auto db = QSqlDatabase::database();
+    if (!db.transaction()) return fail(db.lastError().text());
+    auto rollback = [&](const QString &message) { db.rollback(); return fail(message); };
+    QSqlQuery query(db);
+    query.prepare("SELECT status FROM service_orders WHERE id=?"); query.addBindValue(orderId);
+    if (!query.exec() || !query.next()) return rollback("Ordem de serviço não encontrada.");
+    if (status == "completed") {
+        query.prepare("SELECT m.product_id, m.quantity, p.name, p.stock_quantity FROM service_order_materials m JOIN products p ON p.id=m.product_id WHERE m.order_id=? AND m.consumed=0");
+        query.addBindValue(orderId);
+        if (!query.exec()) return rollback(query.lastError().text());
+        while (query.next()) {
+            const auto productId = query.value(0).toInt(); const auto quantity = query.value(1).toDouble();
+            const auto previous = query.value(3).toDouble();
+            if (previous + 0.0001 < quantity) return rollback(QStringLiteral("Estoque insuficiente para o material: %1.").arg(query.value(2).toString()));
+            QSqlQuery update(db); update.prepare("UPDATE products SET stock_quantity=stock_quantity-? WHERE id=?"); update.addBindValue(quantity); update.addBindValue(productId);
+            if (!update.exec()) return rollback(update.lastError().text());
+            update.prepare("INSERT INTO inventory_movements(product_id,type,quantity,previous_balance,balance,reason,operator_name,user_id) VALUES(?,'exit',?,?,?,?,?,?)");
+            for (const auto &value : QVariantList{productId, -quantity, previous, previous - quantity, QStringLiteral("Material da OS #%1").arg(orderId), Auth::operatorName(), Auth::userId()}) update.addBindValue(value);
+            if (!update.exec()) return rollback(update.lastError().text());
+        }
+        query.prepare("UPDATE service_order_materials SET consumed=1 WHERE order_id=?"); query.addBindValue(orderId);
+        if (!query.exec()) return rollback(query.lastError().text());
+    }
     query.prepare("UPDATE service_orders SET status=?, updated_at=CURRENT_TIMESTAMP, user_id=? WHERE id=?");
     query.addBindValue(status); query.addBindValue(Auth::userId()); query.addBindValue(orderId);
-    if (!query.exec() || query.numRowsAffected() != 1) return fail("Ordem de serviço não encontrada.");
+    if (!query.exec() || query.numRowsAffected() != 1) return rollback("Não foi possível atualizar a ordem de serviço.");
+    if (!db.commit()) return fail(db.lastError().text());
+    refresh(); return true;
+}
+
+bool Finance::addServiceMaterial(int orderId, int productId, const QString &quantityInput) {
+    if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem adicionar materiais.");
+    auto value = quantityInput.trimmed(); value.replace(',', '.'); bool ok = false; const auto quantity = value.toDouble(&ok);
+    if (!ok || !std::isfinite(quantity) || quantity <= 0 || quantity > 1000000 || std::abs(quantity * 1000 - std::round(quantity * 1000)) > 0.0001)
+        return fail("Informe uma quantidade positiva com até três casas decimais.");
+    QSqlQuery query;
+    query.prepare("SELECT status FROM service_orders WHERE id=?"); query.addBindValue(orderId);
+    if (!query.exec() || !query.next() || !QStringList{"open","in_progress"}.contains(query.value(0).toString())) return fail("A ordem não está aberta para adicionar materiais.");
+    query.prepare("SELECT id FROM products WHERE id=? AND active=1 AND product_type='product'"); query.addBindValue(productId);
+    if (!query.exec() || !query.next()) return fail("Material inexistente, inativo ou classificado como serviço.");
+    query.prepare("INSERT INTO service_order_materials(order_id,product_id,quantity) VALUES(?,?,?) ON CONFLICT(order_id,product_id) DO UPDATE SET quantity=quantity+excluded.quantity, consumed=0");
+    query.addBindValue(orderId); query.addBindValue(productId); query.addBindValue(quantity);
+    if (!query.exec()) return fail(query.lastError().text());
     refresh(); return true;
 }
 

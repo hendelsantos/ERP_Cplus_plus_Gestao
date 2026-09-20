@@ -24,6 +24,7 @@ public:
     Q_INVOKABLE bool receiveReceivable(int receivableId, int cashSessionId);
     Q_INVOKABLE bool createServiceOrder(int customerId, int serviceId, const QString &description, const QString &notes);
     Q_INVOKABLE bool updateServiceOrder(int orderId, const QString &status);
+    Q_INVOKABLE bool addServiceMaterial(int orderId, int productId, const QString &quantity);
 signals:
     void changed();
 private:

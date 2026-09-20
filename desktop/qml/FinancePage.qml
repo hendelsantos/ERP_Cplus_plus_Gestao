@@ -29,6 +29,13 @@ ColumnLayout {
         TextField { id: orderNotes; placeholderText: "Observações"; Layout.fillWidth: true }
         Button { text: "Abrir OS"; onClicked: if (page.finance.createServiceOrder(Number(orderCustomer.text), Number(orderService.text), orderDescription.text, orderNotes.text)) { orderCustomer.clear(); orderService.clear(); orderDescription.clear(); orderNotes.clear() } }
     }
+    RowLayout {
+        Layout.fillWidth: true
+        TextField { id: materialOrder; placeholderText: "ID da OS"; inputMethodHints: Qt.ImhDigitsOnly; Layout.preferredWidth: 90 }
+        TextField { id: materialProduct; placeholderText: "ID do material"; inputMethodHints: Qt.ImhDigitsOnly; Layout.preferredWidth: 110 }
+        TextField { id: materialQuantity; placeholderText: "Quantidade"; Layout.preferredWidth: 110 }
+        Button { text: "Adicionar material"; onClicked: if (page.finance.addServiceMaterial(Number(materialOrder.text), Number(materialProduct.text), materialQuantity.text)) { materialOrder.clear(); materialProduct.clear(); materialQuantity.clear() } }
+    }
     Label { text: page.finance.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     RowLayout {
         Layout.fillWidth: true

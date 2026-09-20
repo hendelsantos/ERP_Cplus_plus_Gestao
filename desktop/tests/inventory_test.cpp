@@ -138,7 +138,7 @@ private slots:
         query.finish();
         QVERIFY(query.exec("SELECT COUNT(*) FROM schema_migrations"));
         QVERIFY(query.next());
-        QCOMPARE(query.value(0).toInt(), 18);
+        QCOMPARE(query.value(0).toInt(), 19);
         query.finish();
         MHStore::Inventory inventory;
         QVERIFY(inventory.move(1,"exit","2","Após migração","Ana"));
