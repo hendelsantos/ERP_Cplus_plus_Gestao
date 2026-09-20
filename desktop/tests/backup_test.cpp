@@ -122,7 +122,27 @@ private slots:
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Minha empresa"));
         QVERIFY(!backup.restore(saved));
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
-        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),8);
+        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),9);
+    }
+    void complementaryBackupCompatibility() {
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE products SET brand='Marca',unit='UN',maximum_stock=20,location='A1',notes='Nota'"));
+        QVERIFY(q.exec("UPDATE business_settings SET document='123',phone='456',address='Rua'"));
+        MHStore::Backup backup;
+        const auto folder=directory.filePath(QUuid::createUuid().toString());
+        QVERIFY(backup.create(folder));
+        const auto saved=backup.files().first().toMap().value("path").toString();
+        QVERIFY(q.exec("UPDATE products SET brand='Alterada'"));
+        QVERIFY(q.exec("UPDATE business_settings SET address='Outra'"));
+        QVERIFY(backup.restore(saved)); QVERIFY(authenticateTestAdmin());
+        QCOMPARE(scalar("SELECT brand FROM products").toString(),QString("Marca"));
+        QCOMPARE(scalar("SELECT address FROM business_settings").toString(),QString("Rua"));
+        QVERIFY(removeComplementaryMigration());
+        const auto old=directory.filePath("version8.mhb");
+        q.prepare("VACUUM INTO ?"); q.addBindValue(old); QVERIFY(q.exec());
+        MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(!backup.restore(old));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
     }
     void incompatibleSchema() {
         MHStore::Backup backup;

@@ -63,10 +63,10 @@ QStringList Settings::navigation() const {
 }
 
 Settings::Settings(QObject *parent) : QObject(parent) {
-    QSqlQuery q("SELECT company, profile, inventory, cash, pos FROM business_settings WHERE id=1");
+    QSqlQuery q("SELECT company, profile, inventory, cash, pos, document, phone, address FROM business_settings WHERE id=1");
     if (q.next()) {
         int i=0;
-        for (const auto &key : {"company", "profile", "inventory", "cash", "pos"}) m_values[key]=q.value(i++);
+        for (const auto &key : {"company", "profile", "inventory", "cash", "pos", "document", "phone", "address"}) m_values[key]=q.value(i++);
     } else m_message="Não foi possível carregar as configurações.";
 }
 bool Settings::fail(const QString &message) { m_message=message; emit changed(); return false; }
@@ -83,20 +83,25 @@ bool Settings::enabled(const QString &module) {
     for (const auto &dependency : definition->dependencies) if (!values.value(dependency).toBool()) return false;
     return true;
 }
-bool Settings::saveModules(const QString &company, const QString &profile, const QVariantMap &modules) {
+bool Settings::saveModules(const QString &company, const QString &profile, const QVariantMap &modules,
+    const QString &document, const QString &phone, const QString &address) {
     QStringList expected;
     for (const auto &entry : registry()) if (entry.configurable) expected.append(entry.id);
     if (modules.size()!=expected.size()) return fail("Informe todos os módulos configuráveis, sem módulos adicionais.");
     for (const auto &key : expected)
         if (!modules.contains(key) || modules.value(key).metaType().id()!=QMetaType::Bool)
             return fail("Configuração de módulos inválida.");
-    return save(company,profile,modules.value("inventory").toBool(),modules.value("cash").toBool(),modules.value("pos").toBool());
+    return save(company,profile,modules.value("inventory").toBool(),modules.value("cash").toBool(),modules.value("pos").toBool(),document,phone,address);
 }
-bool Settings::save(const QString &company, const QString &profile, bool inventory, bool cash, bool pos) {
+bool Settings::save(const QString &company, const QString &profile, bool inventory, bool cash, bool pos,
+    const QString &document, const QString &phone, const QString &address) {
     if (!Auth::allowed("settings")) return fail("Acesso negado. Entre com um usuário autorizado.");
     const auto name=company.trimmed();
     if (name.isEmpty() || name.size()>120) return fail("Informe o nome da empresa com até 120 caracteres.");
     if (!QStringList{"general","fashion","market","services"}.contains(profile)) return fail("Perfil de negócio inválido.");
+    const auto taxId=document.trimmed(), contact=phone.trimmed(), where=address.trimmed();
+    if (taxId.size()>20 || contact.size()>20 || where.size()>160)
+        return fail("Documento e telefone da empresa aceitam até 20 caracteres; endereço, até 160.");
     const auto dependency=dependencyError({{"inventory",inventory},{"cash",cash},{"pos",pos}});
     if (!dependency.isEmpty()) return fail(dependency);
     QSqlQuery q;
@@ -111,14 +116,16 @@ bool Settings::save(const QString &company, const QString &profile, bool invento
         if (q.next()) return abort("Feche o caixa antes de alterar os módulos.");
         q.finish();
     }
-    q.prepare("UPDATE business_settings SET company=?,profile=?,inventory=?,cash=?,pos=? WHERE id=1");
-    q.addBindValue(name); q.addBindValue(profile); q.addBindValue(inventory); q.addBindValue(cash); q.addBindValue(pos);
+    q.prepare("UPDATE business_settings SET company=?,profile=?,inventory=?,cash=?,pos=?,document=?,phone=?,address=? WHERE id=1");
+    for (const auto &v : QVariantList{name,profile,inventory,cash,pos,taxId,contact,where}) q.addBindValue(v);
     if (!q.exec()) return abort(q.lastError().text());
     if (!Audit::record("settings.update","Empresa e módulos",
-        QString("empresa=%1; perfil=%2; estoque=%3; caixa=%4; pdv=%5").arg(name,profile).arg(inventory).arg(cash).arg(pos)))
+        QString("empresa=%1; perfil=%2; estoque=%3; caixa=%4; pdv=%5; documento=%6; telefone=%7; endereco=%8")
+            .arg(name,profile).arg(inventory).arg(cash).arg(pos).arg(taxId,contact,where)))
         return abort("Falha ao registrar a auditoria da alteração.");
     if (!QSqlDatabase::database().commit()) return abort("Não foi possível salvar as configurações.");
-    m_values={{"company",name},{"profile",profile},{"inventory",inventory},{"cash",cash},{"pos",pos}};
+    m_values={{"company",name},{"profile",profile},{"inventory",inventory},{"cash",cash},{"pos",pos},
+        {"document",taxId},{"phone",contact},{"address",where}};
     m_message="Configurações salvas."; emit changed(); return true;
 }
 }

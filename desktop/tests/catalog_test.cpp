@@ -1,4 +1,5 @@
 #include "auth_fixture.h"
+#include "core/audit/audit.h"
 #include "core/database/database.h"
 #include "modules/catalog/catalog.h"
 
@@ -23,6 +24,69 @@ class CatalogTest : public QObject
         return query.exec() && query.next() ? query.value(0).toInt() : -1;
     }
 private slots:
+    void catalogAuditAtomicity() {
+        QTemporaryDir directory;
+        const auto path=directory.filePath("audit.sqlite");
+        MHStore::Database::DatabaseManager db;
+        QVERIFY(db.initialize(nullptr,path)); QVERIFY(authenticateTestAdmin());
+        MHStore::Catalog catalog;
+        auto scalar=[](const QString &sql) { QSqlQuery q(sql); return q.next()?q.value(0):QVariant(); };
+        QSqlQuery q;
+        const QStringList sections={"Categorias","Clientes","Fornecedores","Produtos"};
+        const QStringList tables={"categories","customers","suppliers","products"};
+        for (int i=0;i<sections.size();++i) {
+            QVariantMap values{{"name","Nome privado"},{"code","P"},{"cost_price","1"},{"sale_price","2"},{"minimum_stock","0"},
+                {"document","Documento privado"},{"address","Endereço privado"},{"notes","Observação privada"}};
+            const auto count=scalar("SELECT COUNT(*) FROM audit_log").toInt();
+            QVERIFY(catalog.save(sections[i],0,values));
+            QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),count+1);
+            QCOMPARE(scalar("SELECT action FROM audit_log ORDER BY id DESC LIMIT 1").toString(),QString("catalog.create"));
+            QCOMPARE(scalar("SELECT target FROM audit_log ORDER BY id DESC LIMIT 1").toString(),sections[i]+" #1");
+            QCOMPARE(scalar("SELECT user_id FROM audit_log ORDER BY id DESC LIMIT 1").toInt(),MHStore::Auth::userId());
+            QVERIFY(catalog.save(sections[i],1,values));
+            QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),count+1);
+            values["name"]="Nome atualizado";
+            QVERIFY(catalog.save(sections[i],1,values));
+            QCOMPARE(scalar("SELECT details FROM audit_log ORDER BY id DESC LIMIT 1").toString(),QString("Campos: Nome"));
+            QVERIFY(catalog.setActive(sections[i],1,false));
+            QVERIFY(catalog.setActive(sections[i],1,false));
+            QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),count+3);
+            QVERIFY(catalog.setActive(sections[i],1,true));
+            QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),count+4);
+            QVERIFY(q.exec("CREATE TEMP TRIGGER deny_catalog_audit BEFORE INSERT ON audit_log BEGIN SELECT RAISE(ABORT,'audit failure'); END"));
+            values["name"]="Não deve salvar";
+            QVERIFY(!catalog.save(sections[i],1,values));
+            QCOMPARE(scalar("SELECT name FROM "+tables[i]+" WHERE id=1").toString(),QString("Nome atualizado"));
+            QVERIFY(!catalog.setActive(sections[i],1,false));
+            QCOMPARE(scalar("SELECT active FROM "+tables[i]+" WHERE id=1").toInt(),1);
+            values["code"]="P2"; values["document"]="Outro documento";
+            QVERIFY(!catalog.save(sections[i],0,values));
+            QCOMPARE(scalar("SELECT COUNT(*) FROM "+tables[i]).toInt(),1);
+            QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),count+4);
+            QVERIFY(q.exec("DROP TRIGGER deny_catalog_audit"));
+            QVERIFY(!catalog.setActive(sections[i],999,false));
+            QVERIFY(!catalog.save(sections[i],999,values));
+            QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),count+4);
+        }
+        QVERIFY(q.exec("SELECT details,target FROM audit_log WHERE action LIKE 'catalog.%'"));
+        while(q.next()) {
+            const auto text=q.value(0).toString()+q.value(1).toString();
+            QVERIFY(!text.contains("privad")); QVERIFY(!text.contains("atualizado"));
+        }
+        q.finish(); QSqlDatabase::database().close();
+        QVERIFY(db.initialize(nullptr,path)); QVERIFY(authenticateTestAdmin());
+        MHStore::Audit audit; QVERIFY(audit.refresh()); QCOMPARE(audit.entries().size(),16);
+        QCOMPARE(audit.entries().first().toMap().value("action_label").toString(),QString("Cadastro reativado"));
+        MHStore::Auth auth;
+        QVERIFY(auth.saveUser(0,"Caixa","caixa","SenhaCaixa123!","operator",true));
+        QVERIFY(auth.logout()); QVERIFY(auth.login("caixa","SenhaCaixa123!"));
+        const auto before=scalar("SELECT COUNT(*) FROM audit_log").toInt();
+        QVERIFY(!catalog.save("Clientes",0,{{"name","Negado"}}));
+        QVERIFY(!catalog.setActive("Clientes",1,false));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),before);
+        QVERIFY(!audit.refresh()); QVERIFY(audit.entries().isEmpty());
+        QSqlDatabase::database().close(); QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+    }
     void workflow()
     {
         QTemporaryDir directory;
@@ -167,6 +231,48 @@ private slots:
         QSqlDatabase::database().close();
         QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
     }
+    void complementaryFieldsAndMigration() {
+        QTemporaryDir directory;
+        const auto path=directory.filePath("fields.sqlite");
+        MHStore::Database::DatabaseManager db;
+        QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(authenticateTestAdmin());
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO customers(name) VALUES('Anterior')"));
+        QVERIFY(removeComplementaryMigration());
+        QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(q.exec("SELECT address,birth_date,notes FROM customers WHERE id=1"));
+        QVERIFY(q.next()); QCOMPARE(q.value(0).toString(),QString(""));
+        q.finish();
+        MHStore::Catalog catalog;
+        QVariantMap customer{{"name","Cliente"},{"address"," Rua A "},{"birth_date","29/02/2000"},{"notes"," Preferência "}};
+        QVERIFY(catalog.save("Clientes",1,customer));
+        for (const auto &date : {"31/02/2000","01/01/2999","texto"}) {
+            customer["birth_date"]=date; QVERIFY(!catalog.save("Clientes",1,customer));
+        }
+        customer["birth_date"]="2000-02-29";
+        customer["address"]=QString(161,'a'); QVERIFY(!catalog.save("Clientes",1,customer));
+        QVariantMap product{{"name","Produto"},{"code","P"},{"cost_price","1"},{"sale_price","2"},{"minimum_stock","3"},
+            {"maximum_stock","10,5"},{"brand"," Marca "},{"unit","UN"},{"location","A1"},{"notes","Teste"}};
+        QVERIFY(catalog.save("Produtos",0,product));
+        for(const auto &maximum : {"-1","nan","abc","2"}) {
+            product["maximum_stock"]=maximum; QVERIFY(!catalog.save("Produtos",1,product));
+        }
+        product["maximum_stock"]="0"; product["unit"]=QString(11,'x');
+        QVERIFY(!catalog.save("Produtos",1,product));
+        auto optional=product; optional["unit"]=""; optional["maximum_stock"]=""; optional["code"]="OPTIONAL"; optional["name"]="Z opcional";
+        QVERIFY(catalog.save("Produtos",0,optional));
+        QSqlDatabase::database().close();
+        QVERIFY(db.initialize(nullptr,path)); QVERIFY(authenticateTestAdmin());
+        catalog.search("Clientes");
+        QCOMPARE(catalog.rows().first().toMap().value("birth_date").toString(),QString("2000-02-29"));
+        QCOMPARE(catalog.rows().first().toMap().value("address").toString(),QString("Rua A"));
+        catalog.search("Produtos");
+        QCOMPARE(catalog.rows().first().toMap().value("maximum_stock").toDouble(),10.5);
+        QCOMPARE(catalog.rows().first().toMap().value("brand").toString(),QString("Marca"));
+        QSqlDatabase::database().close(); QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+    }
     void upgradeFromVersionSeven()
     {
         QTemporaryDir directory;
@@ -178,6 +284,7 @@ private slots:
         QVERIFY(authenticateTestAdmin());
         QSqlQuery query;
         QVERIFY(query.exec("INSERT INTO products(code,name,sale_price,sale_price_cents) VALUES('ANTIGO','Produto Antigo',9.99,999)"));
+        QVERIFY(removeComplementaryMigration());
         QVERIFY(query.exec("ALTER TABLE products DROP COLUMN supplier_id"));
         QVERIFY(query.exec("DROP TABLE suppliers"));
         QVERIFY(query.exec("DELETE FROM schema_migrations WHERE version=8"));

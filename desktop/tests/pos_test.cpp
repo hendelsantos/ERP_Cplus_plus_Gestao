@@ -272,6 +272,22 @@ private slots:
         QVERIFY(!settings.save("Outra Loja","general",true,true,true));
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Loja Audit"));
     }
+    void companyComplementaryFields() {
+        MHStore::Settings settings;
+        QVERIFY(settings.save("Empresa","general",true,true,true,"12.345","1199999"," Rua da loja "));
+        QVERIFY(!settings.save("Empresa","general",true,true,true,QString(21,'1'),"",""));
+        QVERIFY(!settings.save("Empresa","general",true,true,true,"",QString(21,'1'),""));
+        QVERIFY(!settings.save("Empresa","general",true,true,true,"","",QString(161,'a')));
+        QSqlDatabase::database().close(); QVERIFY(QSqlDatabase::database().open());
+        MHStore::Settings reopened;
+        QCOMPARE(reopened.values().value("address").toString(),QString("Rua da loja"));
+        QCOMPARE(reopened.values().value("document").toString(),QString("12.345"));
+        QSqlQuery q;
+        QVERIFY(q.exec("CREATE TEMP TRIGGER fail_company BEFORE INSERT ON audit_log BEGIN SELECT RAISE(ABORT,'audit failed'); END"));
+        QVERIFY(!reopened.save("Alterada","general",true,true,true,"novo","novo","novo"));
+        QCOMPARE(scalar("SELECT document FROM business_settings").toString(),QString("12.345"));
+        QVERIFY(q.exec("DROP TRIGGER fail_company"));
+    }
     void moduleRegistry() {
         MHStore::Settings settings;
         const QVariantMap disabled={{"inventory",false},{"cash",false},{"pos",false}};
@@ -482,7 +498,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),8);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),9);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }

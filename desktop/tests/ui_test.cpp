@@ -219,6 +219,10 @@ private slots:
             QVERIFY(fill("catalogName", "Camiseta"));
             QVERIFY(fill("catalogCode", "CAM-01"));
             QVERIFY(fill("catalogPrice", "19,90"));
+            QVERIFY(fill("catalogBrand", "Marca teste"));
+            QVERIFY(fill("catalogUnit", "UN"));
+            QVERIFY(fill("catalogMaximum", "20"));
+            QVERIFY(fill("catalogLocation", "Prateleira A"));
             auto *supplierChoice = findItem(window->contentItem(), [](QQuickItem *item) { return item->objectName()=="supplierField"; });
             QVERIFY(supplierChoice);
             QVERIFY(supplierChoice->setProperty("currentIndex", 1));
@@ -305,6 +309,17 @@ private slots:
             if (!screenshotDirectory.isEmpty()) window->grabWindow().save(screenshotDirectory + "/sale-details.png");
             QVERIFY(click("Fechar detalhes"));
             QVERIFY(click("Clientes"));
+            QVERIFY(click("Editar"));
+            QVERIFY(fill("catalogAddress", "Rua do cliente"));
+            QVERIFY(fill("catalogBirth", "29/02/2000"));
+            QVERIFY(fill("catalogNotes", "Cliente prefere contato por telefone"));
+            QVERIFY(click("Salvar"));
+            QCOMPARE(catalog.rows().first().toMap().value("birth_date").toString(),QString("2000-02-29"));
+            QVERIFY(click("Editar"));
+            auto *birth = findItem(window->contentItem(), [](QQuickItem *item) { return item->objectName()=="catalogBirth"; });
+            QVERIFY(birth); QCOMPARE(birth->property("text").toString(),QString("29/02/2000"));
+            if (!screenshotDirectory.isEmpty()) window->grabWindow().save(screenshotDirectory + "/customer-fields.png");
+            QVERIFY(click("Cancelar"));
             QVERIFY(click("Compras"));
             QCOMPARE(pos.customerSummary().value("purchase_count").toInt(),1);
             QCOMPARE(pos.customerSummary().value("spent_cents").toInt(),1990);
@@ -330,8 +345,12 @@ private slots:
             QVERIFY(click("Configurações"));
             QVERIFY(click("Empresa e módulos"));
             QVERIFY(fill("companyName", "Loja modular"));
+            QVERIFY(fill("companyDocument", "12.345"));
+            QVERIFY(fill("companyPhone", "1199999"));
+            QVERIFY(fill("companyAddress", "Rua da loja"));
             QVERIFY(click("Salvar configurações"));
             QCOMPARE(settings.values().value("company").toString(),QString("Loja modular"));
+            QCOMPARE(settings.values().value("address").toString(),QString("Rua da loja"));
             if (!screenshotDirectory.isEmpty()) window->grabWindow().save(screenshotDirectory + "/settings.png");
             auto *posModule = findItem(window->contentItem(), [](QQuickItem *item) { return item->objectName()=="modulePos"; });
             QVERIFY(posModule);
@@ -343,7 +362,11 @@ private slots:
             QVERIFY(click("Salvar configurações"));
             QVERIFY(click("Auditoria"));
             QVERIFY(audit.refresh());
-            QCOMPARE(audit.entries().size(),3);
+            QVERIFY(audit.entries().size()>3);
+            bool foundCatalog=false;
+            for (const auto &entry : audit.entries())
+                if (entry.toMap().value("action")=="catalog.create") foundCatalog=true;
+            QVERIFY(foundCatalog);
             QCOMPARE(audit.entries().first().toMap().value("action").toString(),QString("settings.update"));
             QVERIFY(audit.entries().first().toMap().value("details").toString().contains("empresa=Loja modular"));
             QVERIFY(click("Configurações"));

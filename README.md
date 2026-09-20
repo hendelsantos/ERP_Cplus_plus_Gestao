@@ -67,7 +67,7 @@ Valores aceitam vírgula ou ponto decimal, sem separador de milhar.
 
 Quantidades aceitam até três casas decimais. Saídas não podem tornar o saldo negativo. Produtos inativos mantêm seu histórico, mas precisam ser reativados para receber movimentações. O filtro **Estoque crítico** mostra produtos ativos com saldo menor ou igual ao mínimo. O histórico apresenta as últimas 200 movimentações, de todos os produtos ou do produto selecionado, com horário local.
 
-O responsável vem da sessão autenticada e seu identificador é gravado na movimentação. Movimentação manual exige administrador. Inventário em lote, custo médio e auditoria geral de alterações seguem pendentes.
+O responsável vem da sessão autenticada e seu identificador é gravado na movimentação. Movimentação manual exige administrador. Inventário em lote e custo médio seguem pendentes; cadastros possuem auditoria própria.
 
 
 ## Realizar uma venda
@@ -127,7 +127,7 @@ Para restaurar:
 4. O sistema verifica integridade, vínculos e compatibilidade, cria uma cópia `antes_restauracao_*.mhb` na subpasta `backups` do diretório de dados e restaura em transação.
 5. Após o sucesso, o aplicativo fecha. Abra novamente com `./scripts/dev.sh run`.
 
-Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **8**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
+Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **9**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
 
 Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Agendamento automático, compactação, backup em nuvem e migração automática de backups antigos seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
 
@@ -158,7 +158,7 @@ Abra **Configurações → Empresa e módulos** para salvar o nome da empresa, p
 
 O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos é separada das permissões dos usuários. Autenticação local já está disponível; licenciamento permanece pendente.
 
-A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 8; backups das versões 4 a 7 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
+A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 9; backups das versões 4 a 7 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
 
 
 O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Veja a versão atual do esquema e a compatibilidade na seção de backup.
@@ -184,8 +184,28 @@ As permissões são verificadas no C++. Após cinco tentativas inválidas, a con
 
 **Esqueci minha senha** usa o login de um administrador ativo, seu código e uma nova senha. O código é de uso único: a recuperação emite outro código e invalida o anterior. Administradores adicionais recebem seu código de outro administrador, no botão **Código de recuperação** de **Usuários**, exibido uma só vez ao emissor. Alterar uma conta pela administração invalida suas sessões e seu código de recuperação; operadores têm suas senhas redefinidas por um administrador. Não existe senha mestra nem recuperação por e-mail nesta versão.
 
-**Auditoria**, no menu lateral do administrador, lista as alterações administrativas no momento em que ocorreram: usuários criados/alterados, senhas trocadas, códigos de recuperação emitidos e configurações de empresa/módulos. Cada registro mostra o responsável, o alvo, os detalhes e o horário local; senhas e códigos nunca são gravados. A listagem é paginada e a consulta é restrita a administradores.
+**Auditoria**, no menu lateral do administrador, lista as alterações administrativas no momento em que ocorreram: usuários criados/alterados, senhas trocadas, códigos de recuperação emitidos, configurações de empresa/módulos e alterações de cadastros. Cada registro mostra o responsável, o alvo, os detalhes e o horário local; senhas e códigos nunca são gravados. A listagem é paginada e a consulta é restrita a administradores.
 
-A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 8 não têm restauração direta.
+A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa; a migração **8** adiciona fornecedores e o vínculo com produtos; a **9**, campos complementares. Backups incluem usuários, credenciais protegidas, auditoria e fornecedores; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 9 não têm restauração direta.
 
 Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iterações via OpenSSL. O código de recuperação tem 256 bits aleatórios e somente seu hash é persistido. Detalhes e limites: [autenticação local](docs/autenticacao.md).
+
+
+## Campos complementares
+
+- **Empresa e módulos:** documento (até 20 caracteres), telefone (20) e endereço (160).
+- **Clientes:** endereço (160), nascimento opcional em DD/MM/AAAA e observações (500). A data deve existir e não pode ser futura; é armazenada como AAAA-MM-DD.
+- **Produtos:** marca (60), unidade (10), localização (60), observações (500) e estoque máximo. Zero significa máximo não definido; quando positivo, deve ser maior ou igual ao mínimo.
+
+Todos esses campos são opcionais. O estoque máximo é informativo, sem bloquear entradas ou gerar alertas; a unidade também é informativa e não habilita venda fracionada. Documento e telefone são textos informativos, sem validação fiscal ou integração externa.
+
+A migração **9** preserva os registros existentes e inicia os campos novos vazios, com máximo zero. O backup inclui esses dados. Restauração direta exige esquema idêntico na versão 9; backups até a versão 8 são rejeitados sem alterar o banco atual. Para arquivos antigos, permanece o procedimento de recuperação na versão anterior em ambiente separado e posterior atualização do banco.
+
+
+## Auditoria dos cadastros
+
+Em **Auditoria**, administradores consultam criações, alterações, inativações e reativações de produtos, categorias, clientes e fornecedores. Cada evento informa usuário, horário local, tipo e ID do cadastro. Criações e edições listam os nomes dos campos envolvidos; mudanças de status indicam ativo/inativo. Os valores dos campos não são copiados para esse histórico.
+
+Alteração e auditoria são gravadas juntas: se o registro de auditoria falhar, o cadastro permanece como estava. Salvar valores idênticos ou repetir o status atual não gera evento. Tentativas inválidas ou sem permissão também não geram eventos de alteração concluída. O histórico começa com as novas operações; não há reconstrução retroativa de mudanças anteriores.
+
+Esta entrega reutiliza `audit_log` e mantém banco e compatibilidade de backups no **esquema 9**. Não há edição/exclusão de eventos pela interface. O histórico não substitui backup nem oferece proteção contra edição direta do SQLite fora do aplicativo.

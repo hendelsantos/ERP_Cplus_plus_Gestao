@@ -6,7 +6,7 @@ ColumnLayout {
     id: page
     required property var audit
     spacing: 8
-    Label { text: "Alterações administrativas registradas no momento em que ocorreram: usuários, senhas, códigos de recuperação e configurações. Senhas e códigos nunca são gravados. Operações de venda, estoque e caixa já identificam o responsável em seus próprios registros."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+    Label { text: "Alterações administrativas registradas no momento em que ocorreram: usuários, senhas, códigos de recuperação, configurações e cadastros. A auditoria de cadastros mostra o tipo, ID e campos alterados, sem copiar seus valores. Senhas e códigos nunca são gravados. Operações de venda, estoque e caixa já identificam o responsável em seus próprios registros."; Layout.fillWidth: true; wrapMode: Text.Wrap }
     RowLayout {
         Button { text: "Atualizar"; onClicked: page.audit.refresh() }
         Item { Layout.fillWidth: true }

@@ -16,10 +16,12 @@ public:
     explicit Settings(QObject *parent = nullptr);
     QVariantMap values() const { return m_values; }
     QString message() const { return m_message; }
-    Q_INVOKABLE bool save(const QString &company, const QString &profile, bool inventory, bool cash, bool pos);
+    bool save(const QString &company, const QString &profile, bool inventory, bool cash, bool pos,
+        const QString &document = QStringLiteral(""), const QString &phone = QStringLiteral(""), const QString &address = QStringLiteral(""));
     QVariantList modules() const;
     QStringList navigation() const;
-    Q_INVOKABLE bool saveModules(const QString &company, const QString &profile, const QVariantMap &modules);
+    Q_INVOKABLE bool saveModules(const QString &company, const QString &profile, const QVariantMap &modules,
+        const QString &document = QStringLiteral(""), const QString &phone = QStringLiteral(""), const QString &address = QStringLiteral(""));
     static bool enabled(const QString &module);
     std::function<bool()> hasPendingCart;
 signals:

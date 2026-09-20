@@ -7,6 +7,9 @@ ColumnLayout {
     required property var settings
     function reload() {
         company.text = settings.values.company || ""
+        companyDocument.text = settings.values.document || ""
+        companyPhone.text = settings.values.phone || ""
+        companyAddress.text = settings.values.address || ""
         profile.currentIndex = Math.max(0, profile.indexOfValue(settings.values.profile))
         for (var i = 0; i < moduleChoices.count; ++i) {
             var choice = moduleChoices.itemAt(i)
@@ -19,6 +22,11 @@ ColumnLayout {
     Label { text: "Empresa e módulos"; font.pixelSize: 22; font.bold: true }
     Label { text: "Nome da empresa" }
     TextField { id: company; objectName: "companyName"; Layout.fillWidth: true; maximumLength: 120 }
+    RowLayout {
+        TextField { id: companyDocument; objectName: "companyDocument"; placeholderText: "CPF/CNPJ (opcional)"; maximumLength: 20; Layout.fillWidth: true }
+        TextField { id: companyPhone; objectName: "companyPhone"; placeholderText: "Telefone (opcional)"; maximumLength: 20; Layout.fillWidth: true }
+    }
+    TextField { id: companyAddress; objectName: "companyAddress"; placeholderText: "Endereço da empresa (opcional)"; maximumLength: 160; Layout.fillWidth: true }
     Label { text: "Perfil do negócio" }
     ComboBox {
         id: profile
@@ -57,7 +65,7 @@ ColumnLayout {
             var choice = moduleChoices.itemAt(i)
             selection[choice.modelData.id] = choice.checked
         }
-        page.settings.saveModules(company.text,profile.currentValue,selection)
+        page.settings.saveModules(company.text,profile.currentValue,selection,companyDocument.text,companyPhone.text,companyAddress.text)
     } }
     Label { text: page.settings.message; Layout.fillWidth: true; wrapMode: Text.Wrap }
     Item { Layout.fillHeight: true }

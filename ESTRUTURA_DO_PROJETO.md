@@ -74,7 +74,7 @@ PDV_offline_First_C++/
 └── README.md
 ```
 
-Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto e CMake. Banco atual: **esquema 8**. Restauração direta exige esquema idêntico e versão 8.
+Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto e CMake. Banco atual: **esquema 9**. Restauração direta exige esquema idêntico e versão 9.
 
 ## 5. Estado dos módulos
 
@@ -94,7 +94,7 @@ Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto
 | Financeiro | Pendente | Contas a pagar/receber, despesas e baixas |
 | Dashboard | Indicadores básicos disponíveis | Novos indicadores e relatórios conforme dados existentes |
 | Backup local | Manual e restauração disponíveis | Agendamento e compatibilidade com versões anteriores |
-| Auditoria administrativa | Base disponível: usuários, senhas, códigos e configurações | Estender a cadastros e operações sensíveis (Etapa 2) |
+| Auditoria administrativa e de cadastros | Usuários, senhas, códigos, configurações e cadastros | Ampliar conforme novas operações sensíveis |
 | Licença, atualização e instalador | Pendentes | Distribuição e validação comercial em Windows |
 
 As operações de venda, estoque e caixa já gravam o usuário autenticado. Isso ainda não constitui auditoria geral de todas as alterações.
@@ -144,10 +144,12 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 ### Etapa 2 — Completar cadastros e rastreabilidade
 
 - [x] Cadastro de fornecedores e vínculos necessários. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
-- [ ] Campos complementares de empresa, clientes e produtos.
-- [ ] Auditoria de alterações e inativações relevantes.
+- [x] Campos complementares de empresa, clientes e produtos. Concluído em 20/09/2026; evidências em `docs/progresso.md`.
+- [x] Auditoria de alterações e inativações relevantes. Concluído em 20/09/2026; testes de atomicidade, identificação, persistência e interface registrados em `docs/progresso.md`.
 
 **Concluída quando:** cadastro, busca, edição, inativação, persistência e migração estiverem validados sem perder dados existentes.
+
+**Etapa 2 concluída em 20/09/2026:** fornecedores e vínculos, campos complementares e auditoria dos cadastros, com validação de persistência, permissões e rollback.
 
 ### Etapa 3 — Completar a operação de venda
 
@@ -199,16 +201,17 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ## 8. Próxima tarefa concreta
 
-**Campos complementares de empresa, clientes e produtos** (Etapa 2).
+**Descontos e acréscimos no PDV** (primeira entrega da Etapa 3).
 
 Escopo:
 
-1. Levantar os campos complementares já especificados no [plano completo](MH_Store_ERP_Plano_Completo.md) para empresa, clientes e produtos e selecionar os que a base comum realmente exige nesta fase.
-2. Migração 9 com os campos escolhidos, sem perda de dados existentes; restauração direta passa a exigir esquema 9.
-3. Formulários e validações no C++ seguindo o padrão atual; campos opcionais não podem quebrar cadastros existentes.
-4. Testes de serviço e interface, incluindo migração de banco anterior; atualizar documentação e ponto de continuidade.
+1. Definir ajustes no total da venda, limites, justificativa e permissões na matriz central.
+2. Manter cálculos em centavos inteiros, distinguindo subtotal, desconto, acréscimo e total final.
+3. Persistir os ajustes, preservando itens e consistência entre venda, pagamento, caixa e histórico.
+4. Revisar migração, compatibilidade de backup, comprovante em tela, consulta de vendas e indicadores.
+5. Testar limites, permissões, arredondamento, rollback e fluxo pela interface.
 
-Auditoria de alterações de cadastros permanece para o item seguinte da Etapa 2. Não alterar o banco real para executar testes.
+Não alterar o banco real para executar testes. Pagamentos divididos e devoluções continuam como entregas posteriores.
 
 ## 9. Critério de conclusão de cada entrega
 

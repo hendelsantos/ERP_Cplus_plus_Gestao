@@ -97,6 +97,13 @@ ColumnLayout {
             costField.text = String(row.cost_price || 0).replace('.', ',')
             priceField.text = String(row.sale_price || 0).replace('.', ',')
             minimumField.text = String(row.minimum_stock || 0).replace('.', ',')
+            brandField.text = row.brand || ""
+            unitField.text = row.unit || ""
+            maximumField.text = String(row.maximum_stock || 0).replace('.', ',')
+            locationField.text = row.location || ""
+            notesField.text = row.notes || ""
+            addressField.text = row.address || ""
+            birthField.text = row.birth_date ? row.birth_date.split('-').reverse().join('/') : ""
             documentField.text = row.document || ""
             phoneField.text = row.phone || ""
             emailField.text = row.email || ""
@@ -144,6 +151,21 @@ ColumnLayout {
                 TextField { id: phoneField; objectName: "phoneField"; visible: page.section === "Clientes" || page.section === "Fornecedores"; Layout.fillWidth: true }
                 Label { visible: page.section === "Clientes" || page.section === "Fornecedores"; text: "E-mail" }
                 TextField { id: emailField; objectName: "emailField"; visible: page.section === "Clientes" || page.section === "Fornecedores"; Layout.fillWidth: true }
+                RowLayout {
+                    visible: page.section === "Produtos"
+                    TextField { id: brandField; objectName: "catalogBrand"; placeholderText: "Marca"; maximumLength: 60; Layout.fillWidth: true }
+                    TextField { id: unitField; objectName: "catalogUnit"; placeholderText: "Unidade (UN, KG...)"; maximumLength: 10; Layout.fillWidth: true }
+                }
+                Label { visible: page.section === "Produtos"; text: "Estoque máximo (0 = sem máximo) / localização" }
+                RowLayout {
+                    visible: page.section === "Produtos"
+                    TextField { id: maximumField; objectName: "catalogMaximum"; Layout.fillWidth: true }
+                    TextField { id: locationField; objectName: "catalogLocation"; placeholderText: "Localização"; maximumLength: 60; Layout.fillWidth: true }
+                }
+                Label { visible: page.section === "Produtos"; text: "Unidade e máximo são informativos. O PDV continua vendendo quantidades inteiras."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+                TextField { id: addressField; objectName: "catalogAddress"; visible: page.section === "Clientes"; placeholderText: "Endereço"; maximumLength: 160; Layout.fillWidth: true }
+                TextField { id: birthField; objectName: "catalogBirth"; visible: page.section === "Clientes"; placeholderText: "Nascimento (DD/MM/AAAA)"; maximumLength: 10; Layout.fillWidth: true }
+                TextField { id: notesField; objectName: "catalogNotes"; visible: page.section === "Clientes" || page.section === "Produtos"; placeholderText: "Observações"; maximumLength: 500; Layout.fillWidth: true }
                 Label { id: formError; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
             }
         }
@@ -156,6 +178,8 @@ ColumnLayout {
                         cost_price: costField.text, sale_price: priceField.text, minimum_stock: minimumField.text,
                         category_id: editor.categoryOptions[categoryField.currentIndex].id,
                         supplier_id: editor.supplierOptions[supplierField.currentIndex].id,
+                        brand: brandField.text, unit: unitField.text, maximum_stock: maximumField.text,
+                        location: locationField.text, notes: notesField.text, address: addressField.text, birth_date: birthField.text,
                         document: documentField.text, phone: phoneField.text, email: emailField.text
                     })
                     if (ok) editor.close()

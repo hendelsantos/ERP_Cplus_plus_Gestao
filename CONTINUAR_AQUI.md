@@ -1,6 +1,6 @@
 # Continuidade — MH Store ERP
 
-Este arquivo registra o ponto de parada após o cadastro de fornecedores e o vínculo com produtos, primeira entrega da Etapa 2 do roteiro.
+Este arquivo registra o ponto de parada após a auditoria de criação, edição, inativação e reativação dos cadastros, concluindo a Etapa 2.
 
 ## Como retomar
 
@@ -17,11 +17,12 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 ## Estado implementado
 
 - Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código para todos os administradores, troca da própria senha, matriz centralizada de permissões por ação e auditoria administrativa. Leia `docs/autenticacao.md`.
-- Auditoria administrativa em `core/audit`: usuários, senhas, códigos de recuperação e configurações, gravada na mesma transação da alteração, com consulta paginada restrita a administradores.
+- Auditoria administrativa em `core/audit`: usuários, senhas, códigos de recuperação, configurações e cadastros, gravada na mesma transação da alteração, com consulta paginada restrita a administradores.
 - Registro central de módulos implementados, nomes, dependências e disponibilidade para menu/configurações.
 - Empresa e perfil persistidos; Estoque/Caixa/PDV configuráveis, com dependências e bloqueios no C++.
 - C++20, Qt 6.4+, QML, Qt SQL e SQLite local.
 - Cadastros básicos de produtos, categorias, clientes e fornecedores: inclusão, edição, busca, inativação e reativação. Produtos têm vínculo opcional com fornecedor.
+- Campos opcionais: empresa (documento/telefone/endereço), cliente (endereço/nascimento/observações) e produto (marca/unidade/máximo/localização/observações). Unidade e máximo são informativos; não alteram as regras do PDV ou estoque.
 - Estoque: entrada, saída, ajuste por contagem, estoque crítico e histórico; bloqueia saldo negativo.
 - Caixa: abertura, fechamento, suprimento, sangria, histórico e diferença entre esperado e contado.
 - PDV: carrinho, quantidades inteiras, pagamento único em dinheiro/PIX/crédito/débito/outros, troco e resumo em tela.
@@ -34,11 +35,11 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Última validação
 
-Após a entrega de fornecedores e vínculo com produtos:
+Após a entrega de auditoria dos cadastros:
 
 - Compilação concluída.
-- **5/5 conjuntos de testes passaram**: cadastros (incluindo fornecedores, vínculo e migração da versão 7), estoque, caixa/PDV, backup (esquema 8) e interface (incluindo a tela Fornecedores e o seletor no produto).
-- Interface conferida em 960 × 640, incluindo **Fornecedores** e o editor de produtos.
+- **5/5 conjuntos de testes passaram**: cadastros (incluindo auditoria transacional, rollback, ausência de alterações e privacidade dos detalhes), estoque, caixa/PDV, backup (esquema 9) e interface.
+- Interface conferida em 960 × 640, incluindo a tela de auditoria.
 - Os testes usam bancos temporários; não devem acessar os dados reais da aplicação.
 - Windows e renderização em GPU real ainda não foram validados.
 
@@ -88,8 +89,8 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 
 ## Cuidados técnicos
 
-- **Esquema atual: versão 8.** Usuários e vínculos autenticados (6), auditoria administrativa (7) e fornecedores com vínculo em produtos (8). Configurações de empresa permanecem na tabela `business_settings`.
-- Restauração direta exige esquema idêntico e versão 8. Backups 4–7 são rejeitados; recuperação requer versão anterior em ambiente separado, seguida da atualização do banco. Não há conversão automática de arquivos antigos.
+- **Esquema atual: versão 9.** Usuários e vínculos autenticados (6), auditoria administrativa (7) fornecedores com vínculo em produtos (8) e campos complementares (9). Configurações de empresa permanecem na tabela `business_settings`.
+- Restauração direta exige esquema idêntico e versão 9. Backups 4–8 são rejeitados; recuperação requer versão anterior em ambiente separado, seguida da atualização do banco. Não há conversão automática de arquivos antigos.
 - `core/settings/settings.*`: registro central de módulos, navegação, configuração persistida e validação. A persistência mantém as colunas explícitas da versão 5; acrescentar módulos configuráveis exige revisar esquema e backup. PDV exige Estoque e Caixa. Alterar módulos exige caixa fechado e carrinho vazio. Perfil é descritivo; funcionalidades específicas por segmento ainda não existem.
 - Módulos desabilitados bloqueiam operações no C++, preservando cadastros e histórico. Não são permissões ou licenciamento.
 - Permissões por ação vêm da matriz central `Auth::permissions()` em `core/auth`; alterar concessões exige atualizar a matriz e os testes correspondentes. Perfis permanecem fixos até existir configuração própria.
@@ -97,6 +98,7 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 - Quantidades no estoque aceitam três casas decimais; no PDV, somente unidades inteiras, até 10.000 por item.
 - Vendas e movimentações usam transações com bloqueio de escrita antes de verificar saldos. Não separar gravação da venda, pagamento e estoque.
 - Saldo esperado do caixa = abertura + pagamentos em dinheiro + suprimentos − sangrias. PIX e cartões são registros manuais, sem integração bancária.
+- A auditoria de cadastros registra tipo/ID, usuário e campos alterados (sem copiar valores). Alteração e evento são atômicos; salvar sem mudanças e repetir status não gera evento. Não há histórico retroativo. Esquema permanece 9.
 - Responsável vem da sessão; parâmetros antigos de nome são ignorados. ID do usuário é gravado nas operações, nomes antigos preservados. Não há auditoria geral ainda.
 - Produto possui código/nome/preço preservados nos itens da venda. Cliente possui vínculo por ID, mas o nome exibido vem do cadastro atual; não existe snapshot histórico do nome do cliente. Fornecedor é único por documento quando informado; documento vazio é gravado como nulo. Fornecedores inativos não são oferecidos em novos vínculos, e vínculos existentes são preservados.
 - Backup `.mhb` é SQLite, sem criptografia ou anexos. Restauração exige caixa atual fechado e carrinho vazio, cria cópia anterior, restaura em transação e encerra o aplicativo após sucesso.
@@ -105,12 +107,12 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 
 ## Próxima etapa sugerida — ainda não iniciada
 
-**Próxima tarefa concreta: campos complementares de empresa, clientes e produtos**, segunda entrega da Etapa 2, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
+**Próxima tarefa concreta: descontos e acréscimos no PDV**, primeira entrega da Etapa 3, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
 
 Sequência de evolução da base modular:
 
-1. Etapa 2: campos complementares e, por fim, auditoria de alterações de cadastros.
-2. Etapa 3: descontos, pagamentos divididos, cancelamento/devolução e comprovante.
+1. Etapa 2 concluída: fornecedores, campos complementares e auditoria de cadastros.
+2. Etapa 3: descontos/acréscimos, pagamentos divididos, cancelamento/devolução e comprovante.
 3. Planejar recursos por segmento (grade, peso, serviços) antes de prometer suporte operacional.
 4. Completar financeiro, fornecedores, comprovantes e distribuição Windows antes da versão comercial.
 
@@ -118,9 +120,9 @@ Consulte `docs/comercializacao.md` para os critérios de entrega. O filtro por p
 
 ## Outras pendências relevantes
 
-- Campos complementares dos cadastros; contatos adicionais e custo por fornecedor.
+- Campos específicos por segmento, contatos adicionais e custo por fornecedor.
 - Descontos/acréscimos, pagamentos divididos, quantidades fracionadas no PDV.
-- Permissões customizáveis (perfis configuráveis) e auditoria de cadastros e operações sensíveis.
+- Permissões customizáveis (perfis configuráveis) e evolução da auditoria para novas operações sensíveis.
 - Cancelamento/devolução com estorno controlado de estoque e pagamento.
 - Filtro de vendas por período, comprovante impresso/exportado e relatórios CSV/PDF.
 - Contas a pagar/receber e despesas.
@@ -128,6 +130,6 @@ Consulte `docs/comercializacao.md` para os critérios de entrega. O filtro por p
 - Inventário em lote e custo médio.
 - Licenciamento, atualização e instaladores.
 
-Não há implementação em andamento a completar neste ponto: fornecedores e vínculo com produtos foram concluídos e validados, com testes de serviço e interface.
+Não há implementação em andamento a completar neste ponto: a auditoria dos cadastros foi concluída e validada, com testes de serviço e interface.
 
 OpenSSL Crypto é dependência de compilação. Testes criam usuários reais em bancos temporários, sem bypass de autenticação no código de produção.

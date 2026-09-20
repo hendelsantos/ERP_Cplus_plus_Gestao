@@ -14,6 +14,10 @@ QString actionLabel(const QString &action) {
         {"user.update","Usuário alterado"},
         {"user.password","Senha alterada pelo próprio usuário"},
         {"user.recovery_code","Código de recuperação emitido"},
+        {"catalog.create","Cadastro criado"},
+        {"catalog.update","Cadastro alterado"},
+        {"catalog.deactivate","Cadastro inativado"},
+        {"catalog.reactivate","Cadastro reativado"},
         {"settings.update","Empresa e módulos alterados"},
     };
     return labels.value(action,action);

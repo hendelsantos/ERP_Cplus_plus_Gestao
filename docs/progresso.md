@@ -293,3 +293,34 @@ Data: 20/09/2026. Item “Cadastro de fornecedores e vínculos necessários” d
 - Teste de interface (`ui_test.cpp`): criação de fornecedor pela tela **Fornecedores**, criação de produto com fornecedor selecionado no formulário e vínculo persistido. Capturas sem avisos QML.
 
 Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; telas conferidas por captura em 960 × 640 (`suppliers.png`, `catalog.png` com o seletor de fornecedor). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.
+
+
+## Continuação — campos complementares (Etapa 2)
+
+Entrega de 20/09/2026. A implementação parcial encontrada no banco, configurações e catálogo foi concluída com formulários, compatibilidade de backup e testes.
+
+- Empresa: documento, telefone e endereço opcionais, com limites de tamanho e auditoria administrativa preservada.
+- Cliente: endereço, nascimento e observações; valida data real/não futura e armazena ISO, exibindo DD/MM/AAAA.
+- Produto: marca, unidade, máximo, localização e observações. Máximo vazio/zero significa não definido; positivo exige valor pelo menos igual ao mínimo. Unidade e máximo permanecem informativos.
+- Migração 9 preserva dados e adiciona padrões vazios/zero. Restauração direta exige versão 9 e esquema idêntico. Backup 8 é rejeitado sem alterar dados atuais.
+- Testes de campos opcionais, limites, datas inválidas, persistência, migração 8→9, idempotência, rollback de configurações em falha de auditoria, backup e formulários.
+
+A auditoria geral dos cadastros é a próxima entrega. Campos específicos por segmento e venda fracionada continuam pendentes.
+
+Validação: compilação concluída; **5/5 conjuntos de testes passaram**. Após incluir teste de máximo vazio e ampliar o fluxo de cliente, cadastros e interface passaram novamente (**2/2**), sem avisos QML. Telas conferidas em 960 × 640. Somente bancos temporários foram usados. Item marcado no roteiro; auditoria de cadastros permanece aberta.
+
+
+## Continuação — auditoria dos cadastros (conclusão da Etapa 2)
+
+Entrega de 20/09/2026:
+
+- Criação, edição, inativação e reativação de produtos, categorias, clientes e fornecedores registradas em `audit_log` na mesma transação da alteração.
+- Eventos identificam usuário autenticado, tipo e ID do cadastro, horário e nomes legíveis dos campos alterados. Valores pessoais e observações não são duplicados. Alterações de status registram ativo/inativo.
+- Operações sem alteração efetiva não geram evento. Corrigida a comparação de vínculos nulos para evitar falso evento em produtos.
+- Erro na auditoria desfaz criação, edição e mudança de status. Validações, registros inexistentes e acesso negado não geram evento de sucesso.
+- Consulta existente continua restrita a administradores, com rótulos para os novos eventos. Não há reconstrução de histórico anterior.
+- Sem migração: esquema e compatibilidade de backup permanecem na versão 9.
+
+Validação: compilação concluída. Na execução completa, estoque, PDV, backup e interface passaram; o teste novo de cadastros detectou a comparação de nulos. Após a correção e melhoria dos rótulos, **cadastros e interface foram executados novamente e passaram (2/2)**. Os cinco conjuntos ficaram validados. Testes cobrem quatro tipos de cadastro, rollback, repetição sem mudanças, persistência, usuário, privacidade dos detalhes e bloqueio do operador. Interface conferida em 960 × 640, sem avisos QML; somente bancos temporários utilizados.
+
+Item marcado [x] no roteiro e Etapa 2 concluída. Próxima entrega: descontos e acréscimos no PDV (Etapa 3).

@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 8) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 9) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -115,6 +115,19 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("CREATE TABLE suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL CHECK(length(trim(name)) > 0), document TEXT UNIQUE, phone TEXT, email TEXT, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (8)")
+    }, {
+        QStringLiteral("ALTER TABLE business_settings ADD COLUMN document TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE business_settings ADD COLUMN phone TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE business_settings ADD COLUMN address TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE customers ADD COLUMN address TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE customers ADD COLUMN birth_date TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE customers ADD COLUMN notes TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN brand TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN unit TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN maximum_stock REAL NOT NULL DEFAULT 0"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN location TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("ALTER TABLE products ADD COLUMN notes TEXT NOT NULL DEFAULT ''"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (9)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {
