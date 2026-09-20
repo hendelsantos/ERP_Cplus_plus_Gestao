@@ -1,5 +1,6 @@
 #include "auth_fixture.h"
 #include "core/settings/settings.h"
+#include "core/audit/audit.h"
 #include "core/database/database.h"
 #include "modules/pos/pos.h"
 #include <QSqlDatabase>
@@ -190,10 +191,10 @@ private slots:
     }
     void permissionMatrix() {
         const auto matrix=MHStore::Auth::permissions();
-        QCOMPARE(matrix.size(),8);
+        QCOMPARE(matrix.size(),9);
         QStringList ids;
         for (const auto &p : matrix) { QVERIFY(!p.id.isEmpty()); QVERIFY(!p.description.isEmpty()); QVERIFY(p.admin); ids << p.id; }
-        for (const auto &id : QStringList{"read","catalog","inventory","cash","pos","settings","backup","users"}) QVERIFY(ids.contains(id));
+        for (const auto &id : QStringList{"read","catalog","inventory","cash","pos","settings","backup","users","audit"}) QVERIFY(ids.contains(id));
         for (const auto &p : matrix) QVERIFY(MHStore::Auth::allowed(p.id));
         QVERIFY(!MHStore::Auth::allowed("unknown"));
         QVERIFY(!MHStore::Auth::allowed(""));
@@ -207,6 +208,69 @@ private slots:
         QVERIFY(!MHStore::Auth::allowed("unknown"));
         QVERIFY(auth.logout());
         for (const auto &p : matrix) QVERIFY(!MHStore::Auth::allowed(p.id));
+    }
+    void auditLog() {
+        MHStore::Auth auth;
+        MHStore::Settings settings;
+        MHStore::Audit audit;
+        QVERIFY(audit.refresh());
+        QCOMPARE(audit.entries().size(),0);
+        QVERIFY(!audit.moreAvailable());
+        QVERIFY(auth.saveUser(0,"Bia","bia","SenhaBia12345!","admin",true));
+        QVERIFY(auth.saveUser(0,"Caixa","caixa","SenhaCaixa123!","operator",true));
+        QVERIFY(auth.changePassword("SenhaTeste123!","NovaSenha12345!","NovaSenha12345!"));
+        QVERIFY(auth.issueRecoveryCode(2));
+        QVERIFY(settings.save("Loja Audit","general",true,true,true));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),5);
+        QVERIFY(audit.refresh());
+        QCOMPARE(audit.entries().size(),5);
+        QCOMPARE(audit.entries().at(0).toMap().value("action").toString(),QString("settings.update"));
+        QCOMPARE(audit.entries().at(1).toMap().value("action").toString(),QString("user.recovery_code"));
+        QCOMPARE(audit.entries().at(2).toMap().value("action").toString(),QString("user.password"));
+        QCOMPARE(audit.entries().at(3).toMap().value("action").toString(),QString("user.create"));
+        QCOMPARE(audit.entries().at(4).toMap().value("action").toString(),QString("user.create"));
+        QCOMPARE(audit.entries().at(0).toMap().value("target").toString(),QString("Empresa e módulos"));
+        QCOMPARE(audit.entries().at(1).toMap().value("target").toString(),QString("bia"));
+        QCOMPARE(audit.entries().at(2).toMap().value("target").toString(),QString("admin"));
+        QVERIFY(audit.entries().at(3).toMap().value("details").toString().contains("perfil=operator"));
+        QCOMPARE(audit.entries().at(0).toMap().value("user_name").toString(),QString("Ana"));
+        for (const auto &entry : audit.entries()) {
+            const auto details=entry.toMap().value("details").toString()+entry.toMap().value("target").toString();
+            QVERIFY(!details.contains("SenhaBia12345!"));
+            QVERIFY(!details.contains("SenhaCaixa123!"));
+            QVERIFY(!details.contains("NovaSenha12345!"));
+            QVERIFY(!entry.toMap().value("created_at").toString().isEmpty());
+            QVERIFY(!entry.toMap().value("action_label").toString().isEmpty());
+        }
+        QVERIFY(!auth.saveUser(0,"Ruim","ruim","curta","admin",true));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),5);
+        QVERIFY(auth.saveUser(3,"Caixa Dois","caixa","","operator",true));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM audit_log").toInt(),6);
+        QVERIFY(audit.refresh());
+        QCOMPARE(audit.entries().first().toMap().value("action").toString(),QString("user.update"));
+        QVERIFY(audit.entries().first().toMap().value("details").toString().contains("nome=Caixa Dois"));
+        QVERIFY(!audit.entries().first().toMap().value("details").toString().contains("senha definida"));
+        for (int i=0;i<60;++i) QVERIFY(auth.saveUser(3,"Caixa Dois","caixa","","operator",true));
+        QVERIFY(audit.refresh());
+        QCOMPARE(audit.entries().size(),50);
+        QVERIFY(audit.moreAvailable());
+        QVERIFY(audit.loadMore());
+        QCOMPARE(audit.entries().size(),66);
+        QVERIFY(!audit.moreAvailable());
+        QVERIFY(auth.logout());
+        QVERIFY(auth.login("caixa","SenhaCaixa123!"));
+        QVERIFY(!MHStore::Auth::allowed("audit"));
+        QVERIFY(!audit.refresh());
+        QVERIFY(audit.entries().isEmpty());
+        QVERIFY(audit.message().contains("permissão"));
+        QVERIFY(auth.logout());
+        QVERIFY(auth.login("admin","NovaSenha12345!"));
+        QSqlQuery q;
+        QVERIFY(q.exec("DROP TABLE audit_log"));
+        QVERIFY(!auth.saveUser(3,"Caixa Três","caixa","","operator",true));
+        QCOMPARE(scalar("SELECT name FROM users WHERE id=3").toString(),QString("Caixa Dois"));
+        QVERIFY(!settings.save("Outra Loja","general",true,true,true));
+        QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Loja Audit"));
     }
     void moduleRegistry() {
         MHStore::Settings settings;
@@ -418,7 +482,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),6);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),7);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }

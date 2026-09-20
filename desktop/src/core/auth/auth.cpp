@@ -1,4 +1,5 @@
 #include "auth.h"
+#include "../audit/audit.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QRegularExpression>
@@ -63,6 +64,7 @@ const QList<Auth::PermissionInfo> &Auth::permissions() {
         {"settings","Configurar empresa e habilitar módulos",true,false},
         {"backup","Criar e restaurar backups locais",true,false},
         {"users","Gerenciar usuários e emitir código de recuperação",true,false},
+        {"audit","Consultar o registro de auditoria de alterações administrativas",true,false},
     };
     return matrix;
 }
@@ -135,6 +137,10 @@ bool Auth::changePassword(const QString &currentPassword,const QString &newPassw
     if (currentPassword==newPassword) return fail("Escolha uma senha diferente da atual.");
     const auto salt=randomBytes(16), hash=derive(newPassword,salt,iterations);
     if (hash.isEmpty()) return fail("Falha ao gerar senha segura.");
+    // Record while the session still matches the stored version; the update below
+    // bumps it and would invalidate the in-memory session for the audit lookup.
+    if (!Audit::record("user.password",current().value("login").toString(),"senha alterada pelo próprio usuário na sessão"))
+        return fail("Falha ao registrar a auditoria da alteração.");
     // Preserve recovery credentials; only this process adopts the new session version.
     q.prepare("UPDATE users SET password_hash=?,salt=?,iterations=?,session_version=session_version+1,failed_attempts=0,locked_until=0 WHERE id=? AND session_version=? AND active=1");
     for (const auto &v : QVariantList{hash,salt,iterations,sessionId,sessionVersion}) q.addBindValue(v);
@@ -177,7 +183,12 @@ bool Auth::saveUser(int id,const QString &name,const QString &login,const QStrin
     for (const auto &v: QVariantList{name.trimmed(),normalized,role,active}) q.addBindValue(v);
     if (id==0 || !password.isEmpty()) { q.addBindValue(hash); q.addBindValue(salt); q.addBindValue(iterations); }
     if(id>0) q.addBindValue(id);
-    if(!q.exec() || !tx.commit()) return fail("Não foi possível salvar. Verifique se o login já existe.");
+    if(!q.exec()) return fail("Não foi possível salvar. Verifique se o login já existe.");
+    const QString details=QString("nome=%1; login=%2; perfil=%3; ativo=%4%5").arg(name.trimmed(),normalized,role,active?"sim":"não",
+        (id==0 || !password.isEmpty())?"; senha definida":QString());
+    if (!Audit::record(id==0?"user.create":"user.update",normalized,details))
+        return fail("Falha ao registrar a auditoria da alteração.");
+    if(!tx.commit()) return fail("Não foi possível salvar. Verifique se o login já existe.");
     m_message="Usuário salvo."; emit changed(); return true;
 }
 bool Auth::recover(const QString &login,const QString &code,const QString &password) {
@@ -203,9 +214,18 @@ bool Auth::issueRecoveryCode(int id) {
     const auto code=QString::fromLatin1(token.toHex());
     Transaction tx; if (!tx.begin()) return fail("Banco ocupado.");
     QSqlQuery q;
+    q.prepare("SELECT login FROM users WHERE id=? AND role='admin' AND active=1");
+    q.addBindValue(id);
+    QString target;
+    if (q.exec() && q.next()) target=q.value(0).toString();
+    q.finish();
+    if (target.isEmpty()) return fail("Código não gerado. Confirme um administrador ativo que não seja você.");
     q.prepare("UPDATE users SET recovery_hash=? WHERE id=? AND role='admin' AND active=1");
     q.addBindValue(QCryptographicHash::hash(code.toUtf8(),QCryptographicHash::Sha256)); q.addBindValue(id);
-    if (!q.exec() || q.numRowsAffected()!=1 || !tx.commit()) return fail("Código não gerado. Confirme um administrador ativo que não seja você.");
+    if (!q.exec() || q.numRowsAffected()!=1) return fail("Código não gerado. Confirme um administrador ativo que não seja você.");
+    if (!Audit::record("user.recovery_code",target,"código de recuperação emitido por administrador; o anterior foi invalidado"))
+        return fail("Falha ao registrar a auditoria da alteração.");
+    if (!tx.commit()) return fail("Código não gerado. Confirme um administrador ativo que não seja você.");
     m_recovery=code; m_message="Código de recuperação gerado. O anterior foi invalidado; entregue-o ao administrador por canal seguro.";
     emit changed(); return true;
 }

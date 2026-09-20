@@ -259,3 +259,21 @@ Data: 20/09/2026. Item “Definir permissões por ação antes de oferecer perfi
 - A matriz prepara a base para perfis configuráveis, que permanecem pendentes, agora com ponto único de definição.
 
 Validação: compilação concluída e **5/5 conjuntos de testes aprovados**. Sem alteração de interface, os testes existentes de interface permanecem válidos. Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.
+
+
+## Continuação — auditoria das alterações de usuários e permissões
+
+Data: 20/09/2026. Item “Registrar auditoria das alterações de usuários e permissões” da Etapa 1 em `ESTRUTURA_DO_PROJETO.md` marcado como concluído. **Etapa 1 completa.**
+
+- Migração 7: tabela `audit_log` com usuário responsável (ID e nome da ocasião), ação, alvo, detalhes e data/hora local; índice por recentes.
+- Novo módulo `core/audit` com `Audit::record` (gravação na transação do chamador) e leitor paginado de 50 registros com **Carregar mais**.
+- Ações auditadas: `user.create`, `user.update`, `user.password`, `user.recovery_code` e `settings.update`. Detalhes reconstroem a alteração (nome, login, perfil, ativo, empresa, perfil de negócio e módulos) sem gravar senhas, hashes ou códigos.
+- Falha na gravação da auditoria desfaz a alteração: `saveUser`, `changePassword`, `issueRecoveryCode` e `Settings::save` gravam dentro da própria transação e tratam falha como erro da operação. Na troca de senha, o registro é feito antes do incremento de versão para a sessão permanecer válida na gravação.
+- Permissão nova `audit` (somente administrador) na matriz central; leitor e tela bloqueados para operador.
+- Tela **Auditoria** no menu lateral (administrador), com responsável, ação, alvo, detalhes e horário local.
+- Backup: restauração direta passa a exigir esquema 7; backups 6 são rejeitados sem conversão automática. `audit_log` integra o backup e a restauração transacional.
+- Setup inicial e recuperação por código não são auditados: ocorrem sem sessão autenticada. Operações de venda/estoque/caixa já gravam o responsável em seus próprios registros.
+- Testes de serviço (`pos_test.cpp`, `auditLog`): contagem e ordem das ações, alvo e detalhes, ausência de senhas nos registros, operação falhada sem auditoria, atualização sem redefinição de senha, paginação com 66 registros (50 + Carregar mais), leitura negada a operador e rollback quando a tabela de auditoria é removida (usuário e configuração inalterados). `permissionMatrix` atualizada para nove ações. Expectativas de versão dos testes de migração atualizadas para 7.
+- Teste de interface (`ui_test.cpp`): tela **Auditoria** acessada pelo menu, quatro registros do fluxo administrativo (dois usuários criados, troca de senha, código emitido) na ordem correta, sem paginação pendente; três gravações de configurações conferidas no segundo fluxo. Captura sem avisos QML.
+
+Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; tela conferida por captura em 960 × 640 (`audit.png`). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.

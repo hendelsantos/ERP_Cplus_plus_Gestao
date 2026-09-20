@@ -126,7 +126,7 @@ Para restaurar:
 4. O sistema verifica integridade, vínculos e compatibilidade, cria uma cópia `antes_restauracao_*.mhb` na subpasta `backups` do diretório de dados e restaura em transação.
 5. Após o sucesso, o aplicativo fecha. Abra novamente com `./scripts/dev.sh run`.
 
-Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **6**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
+Esta versão restaura backups com esquema idêntico ao banco atual e versão de migração **7**. Se o backup foi feito com um caixa aberto, essa sessão também será recuperada. Falhas de restauração desfazem as alterações de dados. A cópia anterior permite recuperar o estado que existia antes da restauração.
 
 Os backups incluem somente o banco SQLite, sem criptografia, anexos ou configurações externas. Guarde também cópias em outra unidade; a cópia na mesma unidade não protege contra perda do disco. Agendamento automático, compactação, backup em nuvem e migração automática de backups antigos seguem pendentes. Evite editar o banco com ferramentas externas durante o uso; o aplicativo permite apenas uma instância por diretório de dados.
 
@@ -157,7 +157,7 @@ Abra **Configurações → Empresa e módulos** para salvar o nome da empresa, p
 
 O PDV atual exige Estoque e Caixa. Alterações nos módulos exigem caixa fechado e carrinho vazio. Desabilitar preserva os dados e bloqueia operações de escrita do módulo no C++, além de removê-lo do menu. Cadastros, histórico de vendas, dashboard e backup continuam disponíveis. Configuração de módulos é separada das permissões dos usuários. Autenticação local já está disponível; licenciamento permanece pendente.
 
-A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 6; backups versões 4 e 5 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
+A migração **5** preserva os dados existentes e inicia todos os módulos habilitados, com nome “Minha empresa”. As configurações ficam no SQLite e são incluídas no backup. Restauração direta aceita somente esquema idêntico na versão 7; backups das versões 4, 5 e 6 são rejeitados sem alterar os dados atuais. Para recuperar um backup antigo, use a versão anterior em ambiente separado, restaure nele e depois atualize esse banco para a versão atual. A conversão automática de arquivos de backup ainda não está implementada.
 
 
 O menu e as opções de módulos usam um registro central com identificador, nome e dependências. A configuração rejeita módulos desconhecidos, seleções incompletas e valores inválidos. As verificações operacionais consultam também as dependências do módulo. Veja a versão atual do esquema e a compatibilidade na seção de backup.
@@ -177,12 +177,14 @@ Em **Usuários**, o administrador cria e edita contas, escolhe o perfil, redefin
 | Operar PDV e caixa habilitados | Sim | Sim |
 | Alterar cadastros e movimentar estoque manualmente | Sim | Não |
 | Configurar empresa/módulos, backup e restauração | Sim | Não |
-| Gerenciar usuários | Sim | Não |
+| Gerenciar usuários e consultar a auditoria | Sim | Não |
 
 As permissões são verificadas no C++. Após cinco tentativas inválidas, a conta fica bloqueada por cinco minutos; esse estado persiste no SQLite. Para sair, finalize ou limpe o carrinho. O caixa pode permanecer aberto para troca de operador. Vendas, movimentos de estoque, movimentos de caixa e abertura/fechamento gravam o ID do usuário e seu nome da ocasião. Registros anteriores mantêm seus nomes históricos e não recebem um usuário inventado.
 
 **Esqueci minha senha** usa o login de um administrador ativo, seu código e uma nova senha. O código é de uso único: a recuperação emite outro código e invalida o anterior. Administradores adicionais recebem seu código de outro administrador, no botão **Código de recuperação** de **Usuários**, exibido uma só vez ao emissor. Alterar uma conta pela administração invalida suas sessões e seu código de recuperação; operadores têm suas senhas redefinidas por um administrador. Não existe senha mestra nem recuperação por e-mail nesta versão.
 
-A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão. Backups incluem usuários e credenciais protegidas; após restaurar, valem as contas, senhas e códigos presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 6 não têm restauração direta.
+**Auditoria**, no menu lateral do administrador, lista as alterações administrativas no momento em que ocorreram: usuários criados/alterados, senhas trocadas, códigos de recuperação emitidos e configurações de empresa/módulos. Cada registro mostra o responsável, o alvo, os detalhes e o horário local; senhas e códigos nunca são gravados. A listagem é paginada e a consulta é restrita a administradores.
+
+A migração **6** adiciona usuários e vínculos às operações existentes, sem criar senha padrão; a migração **7** adiciona a auditoria administrativa. Backups incluem usuários, credenciais protegidas e auditoria; após restaurar, valem os registros presentes no backup. O aplicativo encerra a sessão e deve ser reaberto. Backups anteriores ao esquema 7 não têm restauração direta.
 
 Senhas usam PBKDF2-HMAC-SHA256 com salt aleatório individual e 600.000 iterações via OpenSSL. O código de recuperação tem 256 bits aleatórios e somente seu hash é persistido. Detalhes e limites: [autenticação local](docs/autenticacao.md).

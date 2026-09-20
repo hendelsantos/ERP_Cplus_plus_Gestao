@@ -41,6 +41,7 @@ qt_add_qml_module(MHStore
         qml/SettingsPage.qml
         qml/AuthPage.qml
         qml/UsersPage.qml
+        qml/AuditPage.qml
 )
 
 target_link_libraries(MHStore PRIVATE
@@ -119,7 +120,7 @@ endif()
 
 foreach(app_target MHStore catalog_tests inventory_tests pos_tests backup_tests ui_tests)
     if(TARGET ${app_target})
-        target_sources(${app_target} PRIVATE src/core/settings/settings.cpp src/core/settings/settings.h src/core/auth/auth.cpp src/core/auth/auth.h)
+        target_sources(${app_target} PRIVATE src/core/settings/settings.cpp src/core/settings/settings.h src/core/auth/auth.cpp src/core/auth/auth.h src/core/audit/audit.cpp src/core/audit/audit.h)
         target_link_libraries(${app_target} PRIVATE OpenSSL::Crypto)
     endif()
 endforeach()

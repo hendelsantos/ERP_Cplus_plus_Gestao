@@ -1,5 +1,6 @@
 #include "core/auth/auth.h"
 #include "core/settings/settings.h"
+#include "core/audit/audit.h"
 #include "core/database/database.h"
 #include "modules/catalog/catalog.h"
 #include "modules/inventory/inventory.h"
@@ -36,6 +37,7 @@ int main(int argc, char *argv[])
     }
 
     MHStore::Auth auth;
+    MHStore::Audit audit;
     MHStore::Catalog catalog;
     MHStore::Inventory inventory;
     MHStore::Pos pos;
@@ -47,6 +49,7 @@ int main(int argc, char *argv[])
     QObject::connect(&backup, &MHStore::Backup::restored, &application, &QCoreApplication::quit, Qt::QueuedConnection);
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("authStore", &auth);
+    engine.rootContext()->setContextProperty("auditStore", &audit);
     engine.rootContext()->setContextProperty("settingsStore", &settings);
     engine.rootContext()->setContextProperty(QStringLiteral("catalogStore"), &catalog);
     engine.rootContext()->setContextProperty(QStringLiteral("inventoryStore"), &inventory);

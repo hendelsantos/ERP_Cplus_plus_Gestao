@@ -1,6 +1,6 @@
 # Continuidade — MH Store ERP
 
-Este arquivo registra o ponto de parada após a matriz de permissões por ação, terceira entrega da Etapa 1 do roteiro.
+Este arquivo registra o ponto de parada após a auditoria das alterações de usuários e permissões. A **Etapa 1 do roteiro está completa**.
 
 ## Como retomar
 
@@ -16,7 +16,8 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Estado implementado
 
-- Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código para todos os administradores, troca da própria senha e matriz centralizada de permissões por ação. Leia `docs/autenticacao.md`.
+- Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código para todos os administradores, troca da própria senha, matriz centralizada de permissões por ação e auditoria administrativa. Leia `docs/autenticacao.md`.
+- Auditoria administrativa em `core/audit`: usuários, senhas, códigos de recuperação e configurações, gravada na mesma transação da alteração, com consulta paginada restrita a administradores.
 - Registro central de módulos implementados, nomes, dependências e disponibilidade para menu/configurações.
 - Empresa e perfil persistidos; Estoque/Caixa/PDV configuráveis, com dependências e bloqueios no C++.
 - C++20, Qt 6.4+, QML, Qt SQL e SQLite local.
@@ -33,11 +34,11 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Última validação
 
-Após a entrega da matriz de permissões por ação:
+Após a entrega da auditoria administrativa (Etapa 1 completa):
 
 - Compilação concluída.
-- **5/5 conjuntos de testes passaram**: cadastros, estoque, caixa/PDV (incluindo troca de senha, emissão de código e matriz de permissões), backup e interface.
-- Interface inalterada nesta entrega; os fluxos existentes seguem cobertos pelo teste de interface.
+- **5/5 conjuntos de testes passaram**: cadastros, estoque (incluindo migração de banco anterior), caixa/PDV (incluindo autenticação, troca de senha, emissão de código, matriz de permissões e auditoria), backup (esquema 7) e interface (incluindo a tela Auditoria).
+- Interface conferida em 960 × 640, incluindo a tela **Auditoria**.
 - Os testes usam bancos temporários; não devem acessar os dados reais da aplicação.
 - Windows e renderização em GPU real ainda não foram validados.
 
@@ -71,13 +72,15 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 ## Arquivos principais
 
 - `desktop/src/core/database/database.cpp`: abertura e migrações SQLite.
+- `desktop/src/core/auth/auth.*`: login, usuários, recuperação e matriz de permissões.
+- `desktop/src/core/audit/audit.*`: gravação e consulta da auditoria administrativa.
 - `desktop/src/modules/catalog/catalog.*`: cadastros.
 - `desktop/src/modules/inventory/inventory.*`: estoque.
 - `desktop/src/modules/pos/pos.*`: caixa, PDV, consultas de vendas, clientes disponíveis e dashboard.
 - `desktop/src/infrastructure/backup/backup.*`: backup/restauração.
 - `desktop/src/main.cpp`: inicialização, bloqueio de instância e objetos expostos ao QML.
 - `desktop/qml/Main.qml`: navegação e dashboard.
-- `desktop/qml/{CatalogPage,InventoryPage,PosPage,SalesPage,BackupPage}.qml`: telas.
+- `desktop/qml/{CatalogPage,InventoryPage,PosPage,SalesPage,BackupPage,UsersPage,AuditPage}.qml`: telas.
 - `desktop/tests/{catalog_test,inventory_test,pos_test,backup_test,ui_test}.cpp`: testes.
 - `desktop/CMakeLists.txt`: aplicação e testes.
 - `README.md`: instruções de uso.
@@ -85,8 +88,8 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 
 ## Cuidados técnicos
 
-- **Esquema atual: versão 6.** Usuários e vínculos autenticados em vendas, estoque, caixa e fechamento. Configurações de empresa permanecem na tabela `business_settings`.
-- Restauração direta exige esquema idêntico e versão 6. Backups 4/5 são rejeitados; recuperação requer versão anterior em ambiente separado, seguida da atualização do banco. Não há conversão automática de arquivos antigos.
+- **Esquema atual: versão 7.** Usuários e vínculos autenticados em vendas, estoque, caixa e fechamento (migração 6) e auditoria administrativa (migração 7). Configurações de empresa permanecem na tabela `business_settings`.
+- Restauração direta exige esquema idêntico e versão 7. Backups 4/5/6 são rejeitados; recuperação requer versão anterior em ambiente separado, seguida da atualização do banco. Não há conversão automática de arquivos antigos.
 - `core/settings/settings.*`: registro central de módulos, navegação, configuração persistida e validação. A persistência mantém as colunas explícitas da versão 5; acrescentar módulos configuráveis exige revisar esquema e backup. PDV exige Estoque e Caixa. Alterar módulos exige caixa fechado e carrinho vazio. Perfil é descritivo; funcionalidades específicas por segmento ainda não existem.
 - Módulos desabilitados bloqueiam operações no C++, preservando cadastros e histórico. Não são permissões ou licenciamento.
 - Permissões por ação vêm da matriz central `Auth::permissions()` em `core/auth`; alterar concessões exige atualizar a matriz e os testes correspondentes. Perfis permanecem fixos até existir configuração própria.
@@ -102,12 +105,12 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 
 ## Próxima etapa sugerida — ainda não iniciada
 
-**Próxima tarefa concreta: registrar auditoria das alterações de usuários e permissões**, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
+**Próxima tarefa concreta: cadastro de fornecedores e vínculos necessários**, primeira entrega da Etapa 2, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
 
 Sequência de evolução da base modular:
 
-1. Evoluir autenticação: auditoria das alterações de usuários e configurações, depois perfis configuráveis sobre a matriz existente.
-2. Implementar auditoria geral de alterações de cadastros e usuários. Operações de venda/estoque/caixa já possuem vínculo autenticado.
+1. Etapa 2: fornecedores, campos complementares de cadastros e auditoria de alterações de cadastros.
+2. Etapa 3: descontos, pagamentos divididos, cancelamento/devolução e comprovante.
 3. Planejar recursos por segmento (grade, peso, serviços) antes de prometer suporte operacional.
 4. Completar financeiro, fornecedores, comprovantes e distribuição Windows antes da versão comercial.
 
@@ -117,7 +120,7 @@ Consulte `docs/comercializacao.md` para os critérios de entrega. O filtro por p
 
 - Fornecedores e campos complementares dos cadastros.
 - Descontos/acréscimos, pagamentos divididos, quantidades fracionadas no PDV.
-- Evolução de permissões e auditoria geral.
+- Permissões customizáveis (perfis configuráveis) e auditoria de cadastros e operações sensíveis.
 - Cancelamento/devolução com estorno controlado de estoque e pagamento.
 - Filtro de vendas por período, comprovante impresso/exportado e relatórios CSV/PDF.
 - Contas a pagar/receber e despesas.
@@ -125,6 +128,6 @@ Consulte `docs/comercializacao.md` para os critérios de entrega. O filtro por p
 - Inventário em lote e custo médio.
 - Licenciamento, atualização e instaladores.
 
-Não há implementação em andamento a completar neste ponto: a matriz de permissões por ação foi concluída e validada, com testes de serviço.
+Não há implementação em andamento a completar neste ponto: a auditoria administrativa foi concluída e validada, com testes de serviço e interface. Etapa 1 encerrada.
 
 OpenSSL Crypto é dependência de compilação. Testes criam usuários reais em bancos temporários, sem bypass de autenticação no código de produção.

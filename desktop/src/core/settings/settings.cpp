@@ -1,4 +1,5 @@
 #include "../auth/auth.h"
+#include "../audit/audit.h"
 #include "settings.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -112,6 +113,9 @@ bool Settings::save(const QString &company, const QString &profile, bool invento
     q.prepare("UPDATE business_settings SET company=?,profile=?,inventory=?,cash=?,pos=? WHERE id=1");
     q.addBindValue(name); q.addBindValue(profile); q.addBindValue(inventory); q.addBindValue(cash); q.addBindValue(pos);
     if (!q.exec()) return abort(q.lastError().text());
+    if (!Audit::record("settings.update","Empresa e módulos",
+        QString("empresa=%1; perfil=%2; estoque=%3; caixa=%4; pdv=%5").arg(name,profile).arg(inventory).arg(cash).arg(pos)))
+        return abort("Falha ao registrar a auditoria da alteração.");
     if (!QSqlDatabase::database().commit()) return abort("Não foi possível salvar as configurações.");
     m_values={{"company",name},{"profile",profile},{"inventory",inventory},{"cash",cash},{"pos",pos}};
     m_message="Configurações salvas."; emit changed(); return true;

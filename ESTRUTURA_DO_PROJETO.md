@@ -55,6 +55,7 @@ PDV_offline_First_C++/
 │   │   ├── main.cpp                  # Inicialização e objetos expostos ao QML
 │   │   ├── core/
 │   │   │   ├── auth/                 # Login, usuários, perfis e recuperação
+│   │   │   ├── audit/                # Auditoria de alterações administrativas
 │   │   │   ├── database/             # SQLite e migrações
 │   │   │   └── settings/             # Empresa, perfis e registro de módulos
 │   │   ├── modules/
@@ -73,7 +74,7 @@ PDV_offline_First_C++/
 └── README.md
 ```
 
-Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto e CMake. Banco atual: **esquema 6**. Restauração direta exige esquema idêntico e versão 6.
+Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto e CMake. Banco atual: **esquema 7**. Restauração direta exige esquema idêntico e versão 7.
 
 ## 5. Estado dos módulos
 
@@ -93,7 +94,7 @@ Tecnologias atuais: C++20, Qt 6.4+, Qt Quick/QML, Qt SQL, SQLite, OpenSSL Crypto
 | Financeiro | Pendente | Contas a pagar/receber, despesas e baixas |
 | Dashboard | Indicadores básicos disponíveis | Novos indicadores e relatórios conforme dados existentes |
 | Backup local | Manual e restauração disponíveis | Agendamento e compatibilidade com versões anteriores |
-| Auditoria geral | Pendente | Registrar alterações administrativas e ações sensíveis |
+| Auditoria administrativa | Base disponível: usuários, senhas, códigos e configurações | Estender a cadastros e operações sensíveis (Etapa 2) |
 | Licença, atualização e instalador | Pendentes | Distribuição e validação comercial em Windows |
 
 As operações de venda, estoque e caixa já gravam o usuário autenticado. Isso ainda não constitui auditoria geral de todas as alterações.
@@ -106,6 +107,7 @@ As operações de venda, estoque e caixa já gravam o usuário autenticado. Isso
 | Estoque manual | Cadastro de produto, módulo habilitado e administrador |
 | Caixa | Módulo habilitado e usuário autorizado |
 | Usuários, configurações e backup | Administrador |
+| Consulta da auditoria administrativa | Administrador |
 | Consultas operacionais | Usuário autenticado; ambos os perfis atuais podem consultar |
 | Alterar módulos | Caixa fechado e carrinho vazio |
 | Restaurar backup | Administrador, caixa fechado, carrinho vazio e backup compatível |
@@ -132,8 +134,9 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 - [x] Troca da própria senha, exigindo a senha atual. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
 - [x] Emissão/rotação de código de recuperação para administradores adicionais. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
 - [x] Definir permissões por ação antes de oferecer perfis configuráveis. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
-- [ ] Registrar auditoria das alterações de usuários e permissões.
-- [ ] Registrar auditoria das alterações de usuários e permissões.
+- [x] Registrar auditoria das alterações de usuários e permissões. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
+
+**Etapa 1 concluída em 20/09/2026:** troca da própria senha, recuperação para administradores adicionais, matriz de permissões por ação e auditoria administrativa, com testes de serviço e interface.
 
 **Concluída quando:** alterações exigirem autorização, sessões forem tratadas corretamente, o último administrador estiver protegido e os fluxos passarem em testes de serviço e interface.
 
@@ -195,18 +198,17 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ## 8. Próxima tarefa concreta
 
-**Registrar auditoria das alterações de usuários e permissões.**
+**Cadastro de fornecedores e vínculos necessários** (Etapa 2).
 
 Escopo:
 
-1. Migração 7 com tabela de auditoria de ações administrativas: criação/edição/inativação de usuários, emissão de código de recuperação, troca de senha e alterações de empresa/módulos.
-2. Cada registro identifica usuário responsável, ação, alvo, data/hora local e detalhes suficientes para reconstruir a alteração, sem gravar senhas ou códigos.
-3. Gravação na mesma transação da alteração auditada; falha na auditoria desfaz a alteração.
-4. Impacto em backup revisado: restauração direta passa a exigir esquema 7; backups 6 são rejeitados sem conversão automática.
-5. Consulta da auditoria pela interface, restrita a administradores, com paginação.
-6. Testes de serviço e interface; atualizar documentação e ponto de continuidade.
+1. Cadastro de fornecedores com nome obrigatório e identificador único (documento/contato), busca, edição, inativação/reativação e paginação, seguindo o padrão dos cadastros existentes.
+2. Definir e implementar os vínculos necessários nesta fase (por exemplo, produto ↔ fornecedor) com migração 8, avaliando impacto em backup: restauração direta passa a exigir esquema 8.
+3. Permissão pela matriz existente (`catalog`), reutilizando o controle de acesso já testado.
+4. Tela em **Cadastros** com o mesmo comportamento das demais seções.
+5. Testes de serviço e interface, incluindo migração de banco anterior; atualizar documentação e ponto de continuidade.
 
-Auditoria geral de cadastros (produtos, clientes, estoque) permanece para a Etapa 2. Não alterar o banco real para executar testes.
+Campos complementares de produtos/clientes e auditoria de cadastros ficam para os próximos itens da Etapa 2. Não alterar o banco real para executar testes.
 
 ## 9. Critério de conclusão de cada entrega
 

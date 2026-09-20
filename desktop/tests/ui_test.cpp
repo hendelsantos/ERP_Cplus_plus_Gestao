@@ -1,5 +1,6 @@
 #include "auth_fixture.h"
 #include "core/settings/settings.h"
+#include "core/audit/audit.h"
 #include "core/database/database.h"
 #include "modules/catalog/catalog.h"
 #include "modules/inventory/inventory.h"
@@ -51,6 +52,7 @@ private slots:
         MHStore::Auth::resetSession();
         {
             MHStore::Auth auth;
+            MHStore::Audit audit;
             MHStore::Catalog catalog;
             MHStore::Inventory inventory;
             MHStore::Pos pos;
@@ -60,6 +62,7 @@ private slots:
             QStringList warnings;
             connect(&engine,&QQmlEngine::warnings,this,[&](const QList<QQmlError> &errors) { for(const auto &e:errors) warnings << e.toString(); });
             engine.rootContext()->setContextProperty("authStore",&auth);
+            engine.rootContext()->setContextProperty("auditStore",&audit);
             engine.rootContext()->setContextProperty("catalogStore",&catalog);
             engine.rootContext()->setContextProperty("inventoryStore",&inventory);
             engine.rootContext()->setContextProperty("posStore",&pos);
@@ -109,6 +112,15 @@ private slots:
             if(!folder.isEmpty()) window->grabWindow().save(folder+"/recovery-code.png");
             QVERIFY(click("Guardei o código"));
             QVERIFY(auth.recoveryCode().isEmpty());
+            QVERIFY(click("Auditoria"));
+            QVERIFY(audit.refresh());
+            QCOMPARE(audit.entries().size(),4);
+            QCOMPARE(audit.entries().at(0).toMap().value("action").toString(),QString("user.recovery_code"));
+            QCOMPARE(audit.entries().at(1).toMap().value("action").toString(),QString("user.create"));
+            QCOMPARE(audit.entries().at(2).toMap().value("action").toString(),QString("user.password"));
+            QCOMPARE(audit.entries().at(3).toMap().value("action").toString(),QString("user.create"));
+            QVERIFY(!audit.moreAvailable());
+            if(!folder.isEmpty()) window->grabWindow().save(folder+"/audit.png");
             QVERIFY(click("Sair"));
             QVERIFY(!auth.authenticated());
             if(!folder.isEmpty()) window->grabWindow().save(folder+"/login.png");
@@ -163,6 +175,7 @@ private slots:
         QVERIFY(authenticateTestAdmin());
         {
             MHStore::Auth auth;
+            MHStore::Audit audit;
             MHStore::Catalog catalog;
             QVERIFY(catalog.save("Clientes",0,{{"name","Cliente de teste"}}));
             MHStore::Inventory inventory;
@@ -172,6 +185,7 @@ private slots:
             settings.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
             QQmlApplicationEngine engine;
             engine.rootContext()->setContextProperty("authStore", &auth);
+            engine.rootContext()->setContextProperty("auditStore", &audit);
             engine.rootContext()->setContextProperty("settingsStore", &settings);
             QStringList warnings;
             connect(&engine, &QQmlEngine::warnings, this, [&](const QList<QQmlError> &errors) {
@@ -314,6 +328,12 @@ private slots:
             QVERIFY(!findItem(window->contentItem(), [](QQuickItem *item) { return item->objectName()=="navigation_PDV"; }));
             QVERIFY(posModule->setProperty("checked",true));
             QVERIFY(click("Salvar configurações"));
+            QVERIFY(click("Auditoria"));
+            QVERIFY(audit.refresh());
+            QCOMPARE(audit.entries().size(),3);
+            QCOMPARE(audit.entries().first().toMap().value("action").toString(),QString("settings.update"));
+            QVERIFY(audit.entries().first().toMap().value("details").toString().contains("empresa=Loja modular"));
+            QVERIFY(click("Configurações"));
             QVERIFY(click("Backup local"));
             QVERIFY(fill("backupFolder", directory.filePath("copies")));
             QVERIFY(click("Criar backup"));

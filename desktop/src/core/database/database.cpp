@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 6) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 7) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -107,6 +107,10 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("ALTER TABLE cash_sessions ADD COLUMN user_id INTEGER REFERENCES users(id)"),
         QStringLiteral("ALTER TABLE cash_sessions ADD COLUMN closed_user_id INTEGER REFERENCES users(id)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (6)")
+    }, {
+        QStringLiteral("CREATE TABLE audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id), user_name TEXT NOT NULL CHECK(length(user_name) > 0), action TEXT NOT NULL CHECK(length(action) > 0), target TEXT NOT NULL CHECK(length(target) > 0), details TEXT NOT NULL CHECK(length(details) > 0), created_at TEXT NOT NULL CHECK(length(created_at) > 0))"),
+        QStringLiteral("CREATE INDEX audit_log_recent ON audit_log(id DESC)"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (7)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

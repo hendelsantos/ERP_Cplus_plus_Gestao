@@ -139,6 +139,7 @@ ApplicationWindow {
                 }
 
                 Button { visible: authStore.user.role === "admin"; text: "Usuários"; onClicked: window.activeSection = "Usuários" }
+                Button { visible: authStore.user.role === "admin"; text: "Auditoria"; onClicked: window.activeSection = "Auditoria" }
                 Label { text: authStore.user.name || ""; color: "white"; Layout.fillWidth: true; elide: Text.ElideRight }
                 Button { text: "Minha senha"; onClicked: passwordDialog.open() }
                 Button { text: "Sair"; onClicked: authStore.logout() }
@@ -187,7 +188,7 @@ ApplicationWindow {
                 }
 
                 Label {
-                    visible: window.activeSection !== "Usuários" && window.activeSection !== "Dashboard" && !window.isCatalog && window.activeSection !== "Estoque" && window.activeSection !== "PDV" && window.activeSection !== "Caixa" && window.activeSection !== "Vendas" && window.activeSection !== "Configurações"
+                    visible: window.activeSection !== "Usuários" && window.activeSection !== "Auditoria" && window.activeSection !== "Dashboard" && !window.isCatalog && window.activeSection !== "Estoque" && window.activeSection !== "PDV" && window.activeSection !== "Caixa" && window.activeSection !== "Vendas" && window.activeSection !== "Configurações"
                     text: "Módulo preparado para a próxima etapa do MVP."
                     color: window.muted
                     font.pixelSize: 16
@@ -198,6 +199,12 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     auth: authStore
+                }
+                AuditPage {
+                    visible: window.activeSection === "Auditoria" && authStore.user.role === "admin"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    audit: auditStore
                 }
                 RowLayout {
                     visible: window.activeSection === "Configurações"

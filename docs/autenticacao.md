@@ -33,14 +33,17 @@ A matriz de permissões por ação é centralizada em `Auth::permissions()` (`co
 | `settings` | Configurar empresa e módulos | Sim | Não |
 | `backup` | Criar e restaurar backups | Sim | Não |
 | `users` | Gerenciar usuários e emitir código de recuperação | Sim | Não |
+| `audit` | Consultar o registro de auditoria de alterações administrativas | Sim | Não |
+
+Alterações administrativas são auditadas na mesma transação em que ocorrem: criação/edição/inativação de usuários, emissão de código de recuperação, troca da própria senha e alterações de empresa/módulos. Cada registro guarda o responsável (ID e nome da ocasião), a ação, o alvo, detalhes que reconstroem a alteração e data/hora local — nunca senhas, hashes ou códigos. Falha na auditoria desfaz a alteração. A consulta, paginada, fica em **Auditoria** e é restrita a administradores. Setup inicial e recuperação por código não são auditados por ocorrerem sem sessão. Auditoria de cadastros (produtos, clientes, estoque) permanece pendente.
 
 IDs e nomes autenticados são gravados em vendas, estoque, caixa e fechamento; isso não constitui um log completo de auditoria de cadastros e administração.
 
-O esquema 6 preserva registros antigos com vínculos nulos. Recuperação de backup encerra sessão; contas e credenciais voltam ao estado do backup. Restauração direta aceita somente esquema idêntico na versão 6.
+O esquema 7 acrescenta a auditoria administrativa. Recuperação de backup encerra sessão; contas, credenciais e auditoria voltam ao estado do backup. Restauração direta aceita somente esquema idêntico na versão 7.
 
 ## Limites e próximas melhorias
 
 - Controle de acesso dentro do aplicativo não protege contra alguém com permissão do sistema operacional para editar ou copiar o SQLite. Banco e backup não estão criptografados.
 - Relógio local controla bloqueio temporário. Um backup antigo pode restaurar senhas/códigos e contadores antigos; proteja os arquivos.
-- Permissões customizáveis e auditoria geral ainda pendentes.
+- Permissões customizáveis e auditoria de cadastros (produtos, clientes, estoque) ainda pendentes.
 - OpenSSL deve acompanhar o pacote Windows; instalação e renderização em Windows ainda precisam ser validadas.
