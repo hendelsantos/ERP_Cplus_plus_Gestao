@@ -62,6 +62,7 @@ public:
     Q_INVOKABLE void refresh(const QString &search = {});
     Q_INVOKABLE bool add(int productId);
     Q_INVOKABLE bool setQuantity(int productId, int quantity);
+    Q_INVOKABLE bool setQuantityValue(int productId, const QString &quantity);
     Q_INVOKABLE void clearCart();
     Q_INVOKABLE bool openCash(const QString &amount, const QString &operatorName);
     Q_INVOKABLE bool closeCash(int sessionId, const QString &counted, const QString &operatorName);

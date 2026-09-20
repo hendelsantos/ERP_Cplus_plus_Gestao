@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 14) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 15) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -155,6 +155,13 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         QStringLiteral("CREATE TABLE receivables (id INTEGER PRIMARY KEY AUTOINCREMENT, description TEXT NOT NULL CHECK(length(trim(description)) > 0), customer_id INTEGER REFERENCES customers(id), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), due_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','received','cancelled')), received_at TEXT, cash_session_id INTEGER REFERENCES cash_sessions(id), operator_name TEXT NOT NULL DEFAULT '', user_id INTEGER REFERENCES users(id), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE INDEX receivables_status_due ON receivables(status, due_date, id DESC)"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (14)")
+    }, {
+        QStringLiteral("CREATE TABLE sale_items_new (id INTEGER PRIMARY KEY, sale_id INTEGER NOT NULL REFERENCES sales(id), product_id INTEGER NOT NULL REFERENCES products(id), product_code TEXT NOT NULL, product_name TEXT NOT NULL, quantity REAL NOT NULL CHECK(quantity > 0), unit_price_cents INTEGER NOT NULL CHECK(unit_price_cents >= 0), total_cents INTEGER NOT NULL CHECK(total_cents >= 0))"),
+        QStringLiteral("INSERT INTO sale_items_new SELECT id,sale_id,product_id,product_code,product_name,quantity,unit_price_cents,total_cents FROM sale_items"),
+        QStringLiteral("DROP TABLE sale_items"),
+        QStringLiteral("ALTER TABLE sale_items_new RENAME TO sale_items"),
+        QStringLiteral("CREATE INDEX sale_items_sale ON sale_items(sale_id)"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (15)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

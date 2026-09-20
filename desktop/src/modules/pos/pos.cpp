@@ -282,9 +282,16 @@ bool Pos::add(int productId)
 }
 bool Pos::setQuantity(int productId, int quantity)
 {
+    return setQuantityValue(productId, QString::number(quantity));
+}
+bool Pos::setQuantityValue(int productId, const QString &quantityInput)
+{
     if (!Auth::allowed("pos")) return fail("Acesso negado. Entre com um usuário autorizado.");
     if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
-    if (quantity < 0 || quantity > 10000) return fail("Quantidade deve estar entre 0 e 10.000 unidades.");
+    auto normalized = quantityInput.trimmed(); normalized.replace(',', '.');
+    bool ok = false; const auto quantity = normalized.toDouble(&ok);
+    if (!ok || !std::isfinite(quantity) || quantity < 0 || quantity > 10000 || std::abs(quantity * 1000 - std::round(quantity * 1000)) > 0.0001)
+        return fail("Quantidade deve estar entre 0 e 10.000, com até três casas decimais.");
     for (qsizetype i = 0; i < m_cart.size(); ++i) {
         auto row = m_cart[i].toMap();
         if (row.value("id").toInt() != productId) continue;
@@ -293,10 +300,10 @@ bool Pos::setQuantity(int productId, int quantity)
         q.prepare("SELECT stock_quantity FROM products WHERE id = ? AND active = 1");
         q.addBindValue(productId);
         if (!q.exec()) return fail(q.lastError().text());
-        if (!q.next() || q.value(0).toDouble() < quantity) return fail("Produto inativo ou estoque insuficiente.");
-        const auto line = row.value("unit_price_cents").toLongLong() * quantity;
+        if (!q.next() || q.value(0).toDouble() + 0.0001 < quantity) return fail("Produto inativo ou estoque insuficiente.");
+        const qint64 line = qRound64(row.value("unit_price_cents").toLongLong() * quantity);
         if (subtotal() - row.value("total_cents").toLongLong() + line > limit) return fail("Valor da venda acima do limite.");
-        if (quantity!=row.value("quantity").toInt()) resetAdjustments();
+        if (!qFuzzyCompare(quantity + 1, row.value("quantity").toDouble() + 1)) resetAdjustments();
         row["quantity"] = quantity; row["total_cents"] = line; m_cart[i] = row;
         m_error.clear(); emit changed(); return true;
     }
@@ -452,10 +459,10 @@ bool Pos::checkout(int sessionId, const QString &method, const QString &tendered
     QString receipt = QString("Venda #%1\nCliente: %2\n").arg(saleId).arg(customerId > 0 ? customerName : QStringLiteral("Consumidor não identificado"));
     for (const auto &entry : m_cart) {
         const auto row = entry.toMap();
-        const int id = row.value("id").toInt(), quantity = row.value("quantity").toInt();
+        const int id = row.value("id").toInt(); const double quantity = row.value("quantity").toDouble();
         q.prepare("SELECT stock_quantity, sale_price_cents, code, name FROM products WHERE id=? AND active=1"); q.addBindValue(id);
         if (!q.exec()) return fail(q.lastError().text());
-        if (!q.next() || q.value(0).toDouble() < quantity) return fail("Produto inativo ou saldo insuficiente. Revise o carrinho.");
+        if (!q.next() || q.value(0).toDouble() + 0.0001 < quantity) return fail("Produto inativo ou saldo insuficiente. Revise o carrinho.");
         if (q.value(1).toLongLong() != row.value("unit_price_cents").toLongLong()) return fail("O preço de um produto mudou. Remova e adicione o item novamente.");
         const double previous = q.value(0).toDouble();
         const auto code = q.value(2), name = q.value(3); q.finish();

@@ -592,7 +592,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),14);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),15);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }
@@ -659,6 +659,21 @@ private slots:
         pos.searchSales("",0,0,"2026-09-xx",{});
         QVERIFY(pos.sales().isEmpty());
         QVERIFY(!pos.salesError().isEmpty());
+    }
+    void fractionalSaleQuantity() {
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE products SET unit='KG', stock_quantity=5, sale_price_cents=1000 WHERE id=1"));
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("0","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.setQuantityValue(1,"1,250"));
+        QCOMPARE(pos.cart().first().toMap().value("quantity").toDouble(),1.25);
+        QCOMPARE(pos.cart().first().toMap().value("total_cents").toInt(),1250);
+        QVERIFY(pos.checkout(session,"pix","","Ana"));
+        QCOMPARE(scalar("SELECT quantity FROM sale_items WHERE sale_id=1").toDouble(),1.25);
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toDouble(),3.75);
+        QVERIFY(!pos.setQuantityValue(1,"1,2345"));
     }
     void exportSalesCsv() {
         QSqlQuery q;

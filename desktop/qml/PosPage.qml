@@ -147,8 +147,14 @@ ColumnLayout {
                     anchors.margins: 8
                     Label { text: modelData.name + " • " + page.money(modelData.total_cents); elide: Text.ElideRight; Layout.fillWidth: true }
                     RowLayout {
-                        Button { text: "−"; onClicked: page.pos.setQuantity(modelData.id,modelData.quantity-1) }
-                        Label { text: modelData.quantity }
+                        Button { text: "−"; onClicked: page.pos.setQuantityValue(modelData.id,String(Number(modelData.quantity)-1)) }
+                        TextField {
+                            text: modelData.quantity
+                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                            validator: DoubleValidator { bottom: 0; decimals: 3 }
+                            onEditingFinished: page.pos.setQuantityValue(modelData.id,text)
+                            Layout.preferredWidth: 90
+                        }
                         Button { text: "+"; onClicked: page.pos.add(modelData.id) }
                         Button { text: "Remover"; onClicked: page.pos.setQuantity(modelData.id,0) }
                     }

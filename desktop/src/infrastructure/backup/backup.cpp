@@ -104,8 +104,8 @@ bool Backup::restore(const QString &file)
         if (!validate(source.db,error) || !schema(source.db,sourceSchema,error)) return fail(error);
         if (sourceSchema != currentSchema) return fail("Backup incompatível com a estrutura desta versão do sistema.");
         QSqlQuery version(source.db);
-        if (!version.exec("SELECT MAX(version) FROM schema_migrations") || !version.next() || version.value(0).toInt()!=14)
-            return fail("Versão de backup não suportada. Esta versão restaura bancos na versão 14.");
+        if (!version.exec("SELECT MAX(version) FROM schema_migrations") || !version.next() || version.value(0).toInt()!=15)
+            return fail("Versão de backup não suportada. Esta versão restaura bancos na versão 15.");
         version.finish();
         QSqlQuery copy(source.db);
         copy.prepare("VACUUM main INTO ?"); copy.addBindValue(staged);

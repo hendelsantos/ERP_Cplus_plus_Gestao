@@ -114,6 +114,8 @@ O painel apresenta faturamento do dia e do mês, vendas do dia, ticket médio di
 
 A seção **Financeiro** permite lançar despesas a pagar e contas a receber com vencimento. A baixa de despesas cria uma sangria e o recebimento cria um suprimento, ambos na sessão de caixa aberta e dentro da mesma transação que atualiza o título.
 
+No PDV, produtos com unidade como KG podem ser vendidos com quantidades de até três casas decimais. O total da linha é arredondado para centavos e o estoque mantém a quantidade fracionada.
+
 Vendas consideradas: somente as concluídas, agrupadas pelo horário local do computador. Estoque crítico inclui produtos ativos com saldo menor ou igual ao mínimo; produtos sem estoque também entram nessa contagem. Sem vendas, o ticket médio é zero. Sem caixa aberto, o saldo é zero e o painel informa que não há sessão aberta.
 
 O painel atualiza ao abrir o aplicativo, ao voltar para **Dashboard**, a cada minuto enquanto está visível ou pelo botão **Atualizar painel**. Uma falha de consulta exibe indicadores indisponíveis, em vez de apresentar dados antigos como atuais. Indicadores financeiros, gráficos e exportações ainda estão pendentes.

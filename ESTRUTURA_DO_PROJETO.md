@@ -173,7 +173,7 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 ### Etapa 5 — Recursos por segmento
 
 - [ ] Roupas: tamanho, cor, variações e estoque por variação.
-- [ ] Mercados: unidades, quantidades fracionadas e regras de arredondamento no PDV.
+- [x] Mercados: unidades, quantidades fracionadas e regras de arredondamento no PDV.
 - [ ] Serviços: cadastro de serviços, ordens de serviço e consumo opcional de materiais.
 - [ ] Definir uma configuração e um fluxo de demonstração para cada segmento atendido.
 

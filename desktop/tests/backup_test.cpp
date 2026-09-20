@@ -122,7 +122,7 @@ private slots:
         QCOMPARE(scalar("SELECT company FROM business_settings").toString(),QString("Minha empresa"));
         QVERIFY(!backup.restore(saved));
         QCOMPARE(scalar("SELECT stock_quantity FROM products").toInt(),10);
-        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),14);
+        QCOMPARE(scalar("SELECT MAX(version) FROM schema_migrations").toInt(),15);
     }
     void complementaryBackupCompatibility() {
         QSqlQuery q;
