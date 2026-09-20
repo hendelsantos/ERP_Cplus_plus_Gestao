@@ -32,7 +32,7 @@ bool money(QString value, qint64 &cents) {
 Finance::Finance(QObject *parent) : QObject(parent) { refresh(); }
 bool Finance::fail(const QString &message) { m_error = message; emit changed(); return false; }
 void Finance::refresh(bool includePaid) {
-    if (!Auth::allowed("read")) { m_expenses.clear(); m_receivables.clear(); emit changed(); return; }
+    if (!Auth::allowed("read")) { m_expenses.clear(); m_receivables.clear(); m_serviceOrders.clear(); emit changed(); return; }
     QSqlQuery query;
     query.prepare(QStringLiteral("SELECT id, description, amount_cents, due_date, status, paid_at, cash_session_id, operator_name, datetime(created_at,'localtime') AS local_created_at FROM expenses %1 ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, due_date, id DESC")
         .arg(includePaid ? QString() : QStringLiteral("WHERE status='open'")));
@@ -42,6 +42,34 @@ void Finance::refresh(bool includePaid) {
         .arg(includePaid ? QString() : QStringLiteral("WHERE r.status='open'")));
     if (!query.exec()) { m_receivables.clear(); fail(query.lastError().text()); return; }
     m_receivables = records(query); emit changed();
+    if (!query.exec("SELECT o.id, o.customer_id, c.name AS customer_name, o.service_id, p.name AS service_name, o.description, o.notes, o.status, o.amount_cents, datetime(o.created_at,'localtime') AS local_created_at FROM service_orders o JOIN customers c ON c.id=o.customer_id JOIN products p ON p.id=o.service_id ORDER BY o.id DESC")) { m_serviceOrders.clear(); fail(query.lastError().text()); return; }
+    m_serviceOrders = records(query); emit changed();
+}
+
+bool Finance::createServiceOrder(int customerId, int serviceId, const QString &description, const QString &notes) {
+    if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem criar ordens de serviço.");
+    if (customerId <= 0 || serviceId <= 0 || description.trimmed().isEmpty() || description.trimmed().size() > 200 || notes.size() > 500)
+        return fail("Informe cliente, serviço, descrição e observações válidos.");
+    QSqlQuery query;
+    query.prepare("SELECT id, sale_price_cents FROM products WHERE id=? AND active=1 AND product_type='service'"); query.addBindValue(serviceId);
+    if (!query.exec() || !query.next()) return fail("Serviço inexistente ou inativo.");
+    const auto amount = query.value(1).toLongLong();
+    query.prepare("SELECT id FROM customers WHERE id=? AND active=1"); query.addBindValue(customerId);
+    if (!query.exec() || !query.next()) return fail("Cliente inexistente ou inativo.");
+    query.prepare("INSERT INTO service_orders(customer_id,service_id,description,notes,amount_cents,user_id) VALUES(?,?,?,?,?,?)");
+    for (const auto &value : QVariantList{customerId, serviceId, description.trimmed(), notes.trimmed(), amount, Auth::userId()}) query.addBindValue(value);
+    if (!query.exec()) return fail(query.lastError().text());
+    refresh(); return true;
+}
+
+bool Finance::updateServiceOrder(int orderId, const QString &status) {
+    if (!Auth::allowed("finance")) return fail("Acesso negado. Apenas administradores podem atualizar ordens de serviço.");
+    if (!QStringList{"open","in_progress","completed","cancelled"}.contains(status)) return fail("Status de ordem de serviço inválido.");
+    QSqlQuery query;
+    query.prepare("UPDATE service_orders SET status=?, updated_at=CURRENT_TIMESTAMP, user_id=? WHERE id=?");
+    query.addBindValue(status); query.addBindValue(Auth::userId()); query.addBindValue(orderId);
+    if (!query.exec() || query.numRowsAffected() != 1) return fail("Ordem de serviço não encontrada.");
+    refresh(); return true;
 }
 
 bool Finance::createReceivable(const QString &description, const QString &amount, const QString &dueDate, int customerId) {

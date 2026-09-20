@@ -59,7 +59,7 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
         return fail(query.lastError().text());
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 17) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
+    if (version > 18) return fail(QStringLiteral("Banco criado por uma versão mais recente do MH Store."));
     const QList<QStringList> migrations = {{
         QStringLiteral("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1)"),
@@ -169,6 +169,10 @@ bool DatabaseManager::applyMigrations(QString *errorMessage)
     }, {
         QStringLiteral("ALTER TABLE products ADD COLUMN product_type TEXT NOT NULL DEFAULT 'product' CHECK(product_type IN ('product','service'))"),
         QStringLiteral("INSERT INTO schema_migrations(version) VALUES (17)")
+    }, {
+        QStringLiteral("CREATE TABLE service_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL REFERENCES customers(id), service_id INTEGER NOT NULL REFERENCES products(id), description TEXT NOT NULL CHECK(length(trim(description)) > 0), notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','completed','cancelled')), amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, user_id INTEGER REFERENCES users(id))"),
+        QStringLiteral("CREATE INDEX service_orders_status ON service_orders(status, id DESC)"),
+        QStringLiteral("INSERT INTO schema_migrations(version) VALUES (18)")
     }};
 
     for (int migration = version; migration < migrations.size(); ++migration) {

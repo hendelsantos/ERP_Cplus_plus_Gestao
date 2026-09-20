@@ -120,7 +120,7 @@ Após finalizar uma venda, o comprovante não fiscal pode ser exportado para PDF
 
 Produtos podem registrar tamanho e cor opcionais, exibidos no cadastro e no carrinho do PDV. O estoque separado por variação ainda será implementado.
 
-O cadastro também permite marcar um item como **Serviço**. Serviços podem ser vendidos no PDV sem alterar estoque ou criar movimentos de inventário; ordens de serviço ainda estão pendentes.
+O cadastro também permite marcar um item como **Serviço**. Serviços podem ser vendidos no PDV sem alterar estoque ou criar movimentos de inventário. A seção Financeiro permite abrir ordens de serviço vinculadas a cliente e serviço, acompanhar descrição, observações e status; consumo de materiais ainda está pendente.
 
 Vendas consideradas: somente as concluídas, agrupadas pelo horário local do computador. Estoque crítico inclui produtos ativos com saldo menor ou igual ao mínimo; produtos sem estoque também entram nessa contagem. Sem vendas, o ticket médio é zero. Sem caixa aberto, o saldo é zero e o painel informa que não há sessão aberta.
 

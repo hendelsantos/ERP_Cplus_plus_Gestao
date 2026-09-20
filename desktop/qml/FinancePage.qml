@@ -21,6 +21,14 @@ ColumnLayout {
         TextField { id: receivableDueDate; placeholderText: "Vencimento AAAA-MM-DD"; Layout.preferredWidth: 170 }
         Button { text: "Lançar recebível"; onClicked: { if (page.finance.createReceivable(receivableDescription.text, receivableAmount.text, receivableDueDate.text)) { receivableDescription.clear(); receivableAmount.clear(); receivableDueDate.clear() } } }
     }
+    RowLayout {
+        Layout.fillWidth: true
+        TextField { id: orderCustomer; placeholderText: "ID do cliente"; inputMethodHints: Qt.ImhDigitsOnly; Layout.preferredWidth: 100 }
+        TextField { id: orderService; placeholderText: "ID do serviço"; inputMethodHints: Qt.ImhDigitsOnly; Layout.preferredWidth: 100 }
+        TextField { id: orderDescription; placeholderText: "Descrição da ordem"; Layout.fillWidth: true }
+        TextField { id: orderNotes; placeholderText: "Observações"; Layout.fillWidth: true }
+        Button { text: "Abrir OS"; onClicked: if (page.finance.createServiceOrder(Number(orderCustomer.text), Number(orderService.text), orderDescription.text, orderNotes.text)) { orderCustomer.clear(); orderService.clear(); orderDescription.clear(); orderNotes.clear() } }
+    }
     Label { text: page.finance.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     RowLayout {
         Layout.fillWidth: true
@@ -53,6 +61,20 @@ ColumnLayout {
             }
         }
         Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Nenhuma despesa encontrada." }
+    }
+    Label { text: "Ordens de serviço"; font.bold: true; font.pixelSize: 20; Layout.fillWidth: true }
+    ListView {
+        Layout.fillWidth: true; Layout.preferredHeight: 180; model: page.finance.serviceOrders; clip: true
+        delegate: Rectangle {
+            required property var modelData
+            width: ListView.view.width; height: 66; color: "white"; radius: 6; border.color: "#e2e8e5"
+            RowLayout {
+                anchors.fill: parent; anchors.margins: 10
+                Label { text: "OS #" + modelData.id + " • " + modelData.service_name + "\n" + modelData.customer_name + " — " + modelData.description; Layout.fillWidth: true; wrapMode: Text.Wrap }
+                ComboBox { model: ["open", "in_progress", "completed", "cancelled"]; currentIndex: indexOfValue(modelData.status); onActivated: page.finance.updateServiceOrder(modelData.id, currentText) }
+                Label { text: page.money(modelData.amount_cents); Layout.preferredWidth: 90 }
+            }
+        }
     }
     Label { text: "Contas a receber"; font.bold: true; font.pixelSize: 20; Layout.fillWidth: true }
     ListView {

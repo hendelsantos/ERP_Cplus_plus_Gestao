@@ -176,7 +176,8 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 - [ ] Roupas: variações com estoque separado.
 - [x] Mercados: unidades, quantidades fracionadas e regras de arredondamento no PDV.
 - [x] Serviços: cadastro e venda sem consumo de estoque.
-- [ ] Serviços: ordens de serviço e consumo opcional de materiais.
+- [x] Serviços: ordens de serviço com cliente, descrição, observações e status.
+- [ ] Serviços: consumo opcional de materiais.
 - [ ] Definir uma configuração e um fluxo de demonstração para cada segmento atendido.
 
 **Concluída por segmento quando:** suas operações específicas estiverem implementadas e verificadas. Integração com balança, emissão fiscal e outras integrações precisam de escopo próprio.

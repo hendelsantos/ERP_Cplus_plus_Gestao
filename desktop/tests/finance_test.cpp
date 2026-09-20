@@ -57,6 +57,19 @@ private slots:
         QCOMPARE(scalar("SELECT amount_cents FROM cash_movements WHERE cash_session_id=1").toInt(), 7550);
         QVERIFY(!finance.receiveReceivable(1, 1));
     }
+    void serviceOrderLifecycle() {
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO customers(name) VALUES('Cliente OS')"));
+        QVERIFY(q.exec("INSERT INTO products(code,name,sale_price_cents,product_type,active) VALUES('SRV-1','Conserto',12500,'service',1)"));
+        MHStore::Finance finance;
+        QVERIFY(finance.createServiceOrder(1, 1, "Troca de tela", "Cliente aguarda orçamento"));
+        QCOMPARE(finance.serviceOrders().size(), 1);
+        QCOMPARE(finance.serviceOrders().first().toMap().value("status").toString(), QString("open"));
+        QVERIFY(finance.updateServiceOrder(1, "in_progress"));
+        QCOMPARE(scalar("SELECT status FROM service_orders WHERE id=1").toString(), QString("in_progress"));
+        QVERIFY(!finance.updateServiceOrder(1, "invalid"));
+        QVERIFY(!finance.createServiceOrder(1, 999, "Falha", ""));
+    }
 };
 QTEST_GUILESS_MAIN(FinanceTest)
 #include "finance_test.moc"
