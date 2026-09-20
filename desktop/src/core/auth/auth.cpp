@@ -60,6 +60,7 @@ const QList<Auth::PermissionInfo> &Auth::permissions() {
         {"catalog","Criar, editar e ativar/inativar produtos, categorias e clientes",true,false},
         {"inventory","Movimentar estoque manualmente: entrada, saída e ajuste",true,false},
         {"cash","Abrir e fechar caixa, registrar suprimento e sangria",true,true},
+        {"finance","Lançar e baixar despesas financeiras",true,false},
         {"pos","Operar o PDV e finalizar vendas",true,true},
         {"pos.adjust","Aplicar descontos e acréscimos em vendas",true,false},
         {"settings","Configurar empresa e habilitar módulos",true,false},

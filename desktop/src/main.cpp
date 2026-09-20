@@ -5,6 +5,7 @@
 #include "modules/catalog/catalog.h"
 #include "modules/inventory/inventory.h"
 #include "modules/pos/pos.h"
+#include "modules/finance/finance.h"
 #include <QQmlContext>
 #include "infrastructure/backup/backup.h"
 #include <QLockFile>
@@ -41,6 +42,7 @@ int main(int argc, char *argv[])
     MHStore::Catalog catalog;
     MHStore::Inventory inventory;
     MHStore::Pos pos;
+    MHStore::Finance finance;
     MHStore::Backup backup;
     MHStore::Settings settings;
     auth.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
@@ -54,6 +56,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("catalogStore"), &catalog);
     engine.rootContext()->setContextProperty(QStringLiteral("inventoryStore"), &inventory);
     engine.rootContext()->setContextProperty(QStringLiteral("posStore"), &pos);
+    engine.rootContext()->setContextProperty(QStringLiteral("financeStore"), &finance);
     engine.rootContext()->setContextProperty(QStringLiteral("backupStore"), &backup);
     engine.load(QUrl(QStringLiteral("qrc:/MHStore/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {

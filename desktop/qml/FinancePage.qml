@@ -1,0 +1,74 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: page
+    required property var finance
+    function money(cents) { return "R$ " + (Number(cents || 0) / 100).toLocaleString(Qt.locale("pt_BR"), 'f', 2) }
+    spacing: 12
+    RowLayout {
+        Layout.fillWidth: true
+        TextField { id: description; placeholderText: "Descrição da despesa"; Layout.fillWidth: true }
+        TextField { id: amount; placeholderText: "Valor"; Layout.preferredWidth: 120 }
+        TextField { id: dueDate; placeholderText: "Vencimento AAAA-MM-DD"; Layout.preferredWidth: 170 }
+        Button { text: "Lançar"; onClicked: { if (page.finance.createExpense(description.text, amount.text, dueDate.text)) { description.clear(); amount.clear(); dueDate.clear() } } }
+    }
+    Label { text: page.finance.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+    RowLayout {
+        Layout.fillWidth: true
+        Label { text: "Despesas e contas a pagar"; font.bold: true; font.pixelSize: 20; Layout.fillWidth: true }
+        Button { text: "Atualizar"; onClicked: page.finance.refresh() }
+    }
+    ListView {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        model: page.finance.expenses
+        clip: true
+        spacing: 8
+        delegate: Rectangle {
+            required property var modelData
+            width: ListView.view.width
+            height: 74
+            color: "white"
+            radius: 6
+            border.color: "#e2e8e5"
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 12
+                Label { text: modelData.description + "\nVencimento: " + modelData.due_date; Layout.fillWidth: true; wrapMode: Text.Wrap }
+                Label { text: page.money(modelData.amount_cents) + "\n" + modelData.status; Layout.preferredWidth: 130; wrapMode: Text.Wrap }
+                Button {
+                    visible: modelData.status === "open"
+                    text: "Baixar no caixa"
+                    onClicked: paymentDialog.expenseId = modelData.id
+                }
+            }
+        }
+        Label { anchors.centerIn: parent; visible: parent.count === 0; text: "Nenhuma despesa encontrada." }
+    }
+    Dialog {
+        id: paymentDialog
+        property int expenseId: 0
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(500, parent.width - 32)
+        modal: true
+        title: "Baixar despesa"
+        onOpened: cashSession.forceActiveFocus()
+        contentItem: ColumnLayout {
+            Label { text: "Informe o número da sessão de caixa aberta."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            TextField { id: cashSession; placeholderText: "Sessão de caixa"; inputMethodHints: Qt.ImhDigitsOnly; Layout.fillWidth: true }
+            Label { text: page.finance.error; visible: text.length > 0; color: "#b42318"; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        }
+        footer: DialogButtonBox {
+            Button { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button {
+                text: "Confirmar baixa"
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: { if (page.finance.payExpense(paymentDialog.expenseId, Number(cashSession.text))) { paymentDialog.close(); cashSession.clear() } }
+            }
+            onRejected: paymentDialog.close()
+        }
+    }
+}

@@ -252,6 +252,13 @@ ApplicationWindow {
                     pos: posStore
                 }
 
+                FinancePage {
+                    visible: window.activeSection === "Financeiro"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    finance: financeStore
+                }
+
                 PosPage {
                     visible: window.activeSection === "PDV" || window.activeSection === "Caixa"
                     Layout.fillWidth: true

@@ -20,6 +20,7 @@ const QList<Module> &registry() {
         {"pos","PDV",true,{"inventory","cash"}},
         {"sales","Vendas",false,{}},
         {"cash","Caixa",true,{}},
+        {"finance","Financeiro",false,{}},
         {"products","Produtos",false,{}},
         {"categories","Categorias",false,{}},
         {"inventory","Estoque",true,{}},

@@ -285,7 +285,7 @@ private slots:
     }
     void permissionMatrix() {
         const auto matrix=MHStore::Auth::permissions();
-        QCOMPARE(matrix.size(),10);
+        QCOMPARE(matrix.size(),11);
         QStringList ids;
         for (const auto &p : matrix) { QVERIFY(!p.id.isEmpty()); QVERIFY(!p.description.isEmpty()); QVERIFY(p.admin); ids << p.id; }
         for (const auto &id : QStringList{"read","catalog","inventory","cash","pos","settings","backup","users","audit"}) QVERIFY(ids.contains(id));
@@ -592,7 +592,7 @@ private slots:
         pos.refresh();
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
         QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
-        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),12);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),13);
         QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
         QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
     }

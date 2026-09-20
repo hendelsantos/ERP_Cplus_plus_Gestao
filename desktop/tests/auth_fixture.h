@@ -17,7 +17,8 @@ inline bool removeAdjustmentMigration() {
     if (!q.exec("INSERT INTO payments_old SELECT id,sale_id,method,amount_cents,tendered_cents,change_cents FROM payments WHERE method <> 'split'")) return false;
     if (!q.exec("DROP TABLE payments")) return false;
     if (!q.exec("ALTER TABLE payments_old RENAME TO payments")) return false;
-    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12)");
+    if (!q.exec("DROP TABLE IF EXISTS expenses")) return false;
+    return q.exec("DELETE FROM schema_migrations WHERE version IN (10,11,12,13)");
 }
 inline bool removeComplementaryMigration() {
     if (!removeAdjustmentMigration()) return false;

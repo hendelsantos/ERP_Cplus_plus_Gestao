@@ -110,6 +110,10 @@ As consultas funcionam após reiniciar o aplicativo. Registros antigos que não 
 
 O painel apresenta faturamento do dia e do mês, vendas do dia, ticket médio diário, recebimentos em dinheiro e por outros meios, cancelamentos do mês, produtos com estoque crítico e dinheiro esperado na sessão de caixa aberta. Também mostra a quantidade de produtos ativos sem estoque. Os indicadores são calculados a partir das vendas, pagamentos e movimentações persistidos; contas a pagar e receber ainda não fazem parte do sistema.
 
+## Financeiro
+
+A seção **Financeiro** permite lançar despesas a pagar com vencimento e baixá-las em uma sessão de caixa aberta. A baixa cria uma sangria de mesmo valor e é transacional, evitando despesa paga sem movimento correspondente. Contas a receber ainda estão pendentes.
+
 Vendas consideradas: somente as concluídas, agrupadas pelo horário local do computador. Estoque crítico inclui produtos ativos com saldo menor ou igual ao mínimo; produtos sem estoque também entram nessa contagem. Sem vendas, o ticket médio é zero. Sem caixa aberto, o saldo é zero e o painel informa que não há sessão aberta.
 
 O painel atualiza ao abrir o aplicativo, ao voltar para **Dashboard**, a cada minuto enquanto está visível ou pelo botão **Atualizar painel**. Uma falha de consulta exibe indicadores indisponíveis, em vez de apresentar dados antigos como atuais. Indicadores financeiros, gráficos e exportações ainda estão pendentes.

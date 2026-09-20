@@ -5,6 +5,7 @@
 #include "modules/catalog/catalog.h"
 #include "modules/inventory/inventory.h"
 #include "modules/pos/pos.h"
+#include "modules/finance/finance.h"
 
 #include "infrastructure/backup/backup.h"
 #include <QGuiApplication>
@@ -56,6 +57,7 @@ private slots:
             MHStore::Catalog catalog;
             MHStore::Inventory inventory;
             MHStore::Pos pos;
+            MHStore::Finance finance;
             MHStore::Backup backup;
             MHStore::Settings settings;
             QQmlApplicationEngine engine;
@@ -66,6 +68,7 @@ private slots:
             engine.rootContext()->setContextProperty("catalogStore",&catalog);
             engine.rootContext()->setContextProperty("inventoryStore",&inventory);
             engine.rootContext()->setContextProperty("posStore",&pos);
+            engine.rootContext()->setContextProperty("financeStore",&finance);
             engine.rootContext()->setContextProperty("backupStore",&backup);
             engine.rootContext()->setContextProperty("settingsStore",&settings);
             engine.load(QUrl::fromLocalFile(QStringLiteral(MHSTORE_QML_DIR "/Main.qml")));
@@ -180,6 +183,7 @@ private slots:
             QVERIFY(catalog.save("Clientes",0,{{"name","Cliente de teste"}}));
             MHStore::Inventory inventory;
             MHStore::Pos pos;
+            MHStore::Finance finance;
             MHStore::Backup backup;
             MHStore::Settings settings;
             settings.hasPendingCart = [&pos] { return !pos.cart().isEmpty(); };
@@ -194,6 +198,7 @@ private slots:
             engine.rootContext()->setContextProperty("catalogStore", &catalog);
             engine.rootContext()->setContextProperty("inventoryStore", &inventory);
             engine.rootContext()->setContextProperty("posStore", &pos);
+            engine.rootContext()->setContextProperty("financeStore", &finance);
             engine.rootContext()->setContextProperty("backupStore", &backup);
             engine.load(QUrl::fromLocalFile(QStringLiteral(MHSTORE_QML_DIR "/Main.qml")));
             QVERIFY(!engine.rootObjects().isEmpty());
