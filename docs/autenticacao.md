@@ -21,7 +21,20 @@ Administradores adicionais recebem código por outro administrador, no botão **
 
 ## Permissões e rastreabilidade
 
-Administrador: consultas, cadastros, estoque manual, caixa, PDV, configurações, backup e usuários. Operador: consultas e operações de caixa/PDV habilitados. Perfis são fixos, ainda não há matriz customizável. IDs e nomes autenticados são gravados em vendas, estoque, caixa e fechamento; isso não constitui um log completo de auditoria de cadastros e administração.
+A matriz de permissões por ação é centralizada em `Auth::permissions()` (`core/auth`), com identificadores estáveis por ação, distintos de telas. `Auth::allowed` consulta a matriz; identificadores desconhecidos e sessões ausentes são sempre negados. Perfis são fixos, ainda não há matriz customizável.
+
+| Identificador | Ação | Administrador | Operador |
+| --- | --- | --- | --- |
+| `read` | Consultar cadastros, estoque, vendas, clientes, caixa e painel | Sim | Sim |
+| `catalog` | Criar, editar e ativar/inativar produtos, categorias e clientes | Sim | Não |
+| `inventory` | Movimentar estoque manualmente | Sim | Não |
+| `cash` | Abrir/fechar caixa, suprimento e sangria | Sim | Sim |
+| `pos` | Operar o PDV e finalizar vendas | Sim | Sim |
+| `settings` | Configurar empresa e módulos | Sim | Não |
+| `backup` | Criar e restaurar backups | Sim | Não |
+| `users` | Gerenciar usuários e emitir código de recuperação | Sim | Não |
+
+IDs e nomes autenticados são gravados em vendas, estoque, caixa e fechamento; isso não constitui um log completo de auditoria de cadastros e administração.
 
 O esquema 6 preserva registros antigos com vínculos nulos. Recuperação de backup encerra sessão; contas e credenciais voltam ao estado do backup. Restauração direta aceita somente esquema idêntico na versão 6.
 

@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QVariantList>
+#include <QStringList>
 #include <functional>
 namespace MHStore {
 class Auth : public QObject {
@@ -13,6 +14,10 @@ class Auth : public QObject {
     Q_PROPERTY(QString message READ message NOTIFY changed)
     Q_PROPERTY(QString recoveryCode READ recoveryCode NOTIFY changed)
 public:
+    struct PermissionInfo {
+        QString id, description;
+        bool admin, operatorRole;
+    };
     explicit Auth(QObject *parent=nullptr) : QObject(parent) {}
     bool needsSetup() const;
     bool authenticated() const { return !current().isEmpty(); }
@@ -30,6 +35,7 @@ public:
     Q_INVOKABLE void dismissRecovery() { m_recovery.clear(); emit changed(); }
     Q_INVOKABLE bool can(const QString &permission) const { return allowed(permission); }
     static bool allowed(const QString &permission);
+    static const QList<PermissionInfo> &permissions();
     static QVariantMap current();
     static int userId() { return current().value("id").toInt(); }
     static QString operatorName() { return current().value("name").toString(); }

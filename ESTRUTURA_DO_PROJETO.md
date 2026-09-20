@@ -131,7 +131,8 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 - [x] Troca da própria senha, exigindo a senha atual. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
 - [x] Emissão/rotação de código de recuperação para administradores adicionais. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
-- [ ] Definir permissões por ação antes de oferecer perfis configuráveis.
+- [x] Definir permissões por ação antes de oferecer perfis configuráveis. Concluído e validado em 20/09/2026; evidências em `docs/progresso.md`.
+- [ ] Registrar auditoria das alterações de usuários e permissões.
 - [ ] Registrar auditoria das alterações de usuários e permissões.
 
 **Concluída quando:** alterações exigirem autorização, sessões forem tratadas corretamente, o último administrador estiver protegido e os fluxos passarem em testes de serviço e interface.
@@ -194,17 +195,18 @@ Trabalhar uma entrega verificável por vez, na ordem abaixo, ajustando prioridad
 
 ## 8. Próxima tarefa concreta
 
-**Definir permissões por ação antes de oferecer perfis configuráveis.**
+**Registrar auditoria das alterações de usuários e permissões.**
 
 Escopo:
 
-1. Inventariar todas as ações sensíveis já implementadas (cadastros, estoque manual, caixa, PDV, vendas, configurações, backup, usuários, recuperação) e onde cada autorização é verificada.
-2. Definir identificadores estáveis por ação, distintos de telas, e a matriz fixa atual administrador/operador para cada um.
-3. Substituir a lista dispersa de permissões por uma matriz centralizada e completa no C++, mantendo o comportamento hoje testado.
-4. Testar cada identificador de ação com os dois perfis, inclusive identificadores desconhecidos.
-5. Atualizar documentação e ponto de continuidade.
+1. Migração 7 com tabela de auditoria de ações administrativas: criação/edição/inativação de usuários, emissão de código de recuperação, troca de senha e alterações de empresa/módulos.
+2. Cada registro identifica usuário responsável, ação, alvo, data/hora local e detalhes suficientes para reconstruir a alteração, sem gravar senhas ou códigos.
+3. Gravação na mesma transação da alteração auditada; falha na auditoria desfaz a alteração.
+4. Impacto em backup revisado: restauração direta passa a exigir esquema 7; backups 6 são rejeitados sem conversão automática.
+5. Consulta da auditoria pela interface, restrita a administradores, com paginação.
+6. Testes de serviço e interface; atualizar documentação e ponto de continuidade.
 
-Perfis configuráveis pelo usuário permanecem fora desta entrega; ela prepara a base para eles. Não alterar o banco real para executar testes.
+Auditoria geral de cadastros (produtos, clientes, estoque) permanece para a Etapa 2. Não alterar o banco real para executar testes.
 
 ## 9. Critério de conclusão de cada entrega
 

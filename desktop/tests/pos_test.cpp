@@ -188,6 +188,26 @@ private slots:
         QVERIFY(auth.recover("bia",persisted,"SenhaPersiste123!"));
         QVERIFY(auth.login("bia","SenhaPersiste123!"));
     }
+    void permissionMatrix() {
+        const auto matrix=MHStore::Auth::permissions();
+        QCOMPARE(matrix.size(),8);
+        QStringList ids;
+        for (const auto &p : matrix) { QVERIFY(!p.id.isEmpty()); QVERIFY(!p.description.isEmpty()); QVERIFY(p.admin); ids << p.id; }
+        for (const auto &id : QStringList{"read","catalog","inventory","cash","pos","settings","backup","users"}) QVERIFY(ids.contains(id));
+        for (const auto &p : matrix) QVERIFY(MHStore::Auth::allowed(p.id));
+        QVERIFY(!MHStore::Auth::allowed("unknown"));
+        QVERIFY(!MHStore::Auth::allowed(""));
+        QVERIFY(!MHStore::Auth::allowed("READ"));
+        QVERIFY(!MHStore::Auth::allowed("users; DROP TABLE users"));
+        MHStore::Auth auth;
+        QVERIFY(auth.saveUser(0,"Caixa","caixa","SenhaCaixa123!","operator",true));
+        QVERIFY(auth.logout());
+        QVERIFY(auth.login("caixa","SenhaCaixa123!"));
+        for (const auto &p : matrix) QCOMPARE(MHStore::Auth::allowed(p.id),p.operatorRole);
+        QVERIFY(!MHStore::Auth::allowed("unknown"));
+        QVERIFY(auth.logout());
+        for (const auto &p : matrix) QVERIFY(!MHStore::Auth::allowed(p.id));
+    }
     void moduleRegistry() {
         MHStore::Settings settings;
         const QVariantMap disabled={{"inventory",false},{"cash",false},{"pos",false}};

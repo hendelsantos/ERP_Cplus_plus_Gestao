@@ -48,8 +48,23 @@ QVariantMap Auth::current() {
 bool Auth::allowed(const QString &permission) {
     const auto u=current();
     if (u.isEmpty()) return false;
-    if (!QStringList{"read","catalog","inventory","cash","pos","settings","backup","users"}.contains(permission)) return false;
-    return u.value("role")=="admin" || QStringList{"read","cash","pos"}.contains(permission);
+    const bool admin=u.value("role")=="admin", op=u.value("role")=="operator";
+    for (const auto &p : permissions())
+        if (p.id==permission) return admin ? p.admin : (op && p.operatorRole);
+    return false;
+}
+const QList<Auth::PermissionInfo> &Auth::permissions() {
+    static const QList<PermissionInfo> matrix={
+        {"read","Consultar cadastros, estoque, vendas, clientes, caixa e painel",true,true},
+        {"catalog","Criar, editar e ativar/inativar produtos, categorias e clientes",true,false},
+        {"inventory","Movimentar estoque manualmente: entrada, saída e ajuste",true,false},
+        {"cash","Abrir e fechar caixa, registrar suprimento e sangria",true,true},
+        {"pos","Operar o PDV e finalizar vendas",true,true},
+        {"settings","Configurar empresa e habilitar módulos",true,false},
+        {"backup","Criar e restaurar backups locais",true,false},
+        {"users","Gerenciar usuários e emitir código de recuperação",true,false},
+    };
+    return matrix;
 }
 bool Auth::needsSetup() const { QSqlQuery q("SELECT COUNT(*) FROM users"); return q.next() && q.value(0).toInt()==0; }
 bool Auth::fail(const QString &message) { m_message=message; emit changed(); return false; }

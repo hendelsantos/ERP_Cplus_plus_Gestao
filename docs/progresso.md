@@ -245,3 +245,17 @@ Data: 20/09/2026. Item “Emissão/rotação de código de recuperação para ad
 - Teste de interface (`ui_test.cpp`): criação de segundo administrador, emissão pela tela **Usuários**, exibição e descarte do código, recuperação pela tela de login com o código emitido, login com a senha redefinida e descarte do código rotacionado. Capturas sem avisos QML.
 
 Validação: compilação concluída e **5/5 conjuntos de testes aprovados**; telas conferidas por captura em 960 × 640 (`recovery-code.png`, `recovery-rotated.png`). Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.
+
+
+## Continuação — matriz de permissões por ação
+
+Data: 20/09/2026. Item “Definir permissões por ação antes de oferecer perfis configuráveis” da Etapa 1 em `ESTRUTURA_DO_PROJETO.md` marcado como concluído.
+
+- Inventário das verificações existentes: `read`, `catalog`, `inventory`, `cash`, `pos`, `settings`, `backup` e `users`, aplicadas em `core/auth`, `modules/catalog`, `modules/inventory`, `modules/pos`, `core/settings` e `infrastructure/backup`.
+- Matriz centralizada em `Auth::permissions()` (`core/auth`): identificador estável por ação, descrição e concessão por perfil. `Auth::allowed` consulta a matriz; identificadores desconhecidos, perfis desconhecidos e sessões ausentes são negados.
+- Comportamento preservado: administrador mantém todas as ações; operador mantém `read`, `cash` e `pos`. Nenhuma concessão nova ou removida.
+- Sem migração e sem mudança de interface: banco e backups permanecem no esquema 6.
+- Teste de serviço (`pos_test.cpp`, `permissionMatrix`): matriz completa com os oito identificadores e descrições, todas as ações concedidas ao administrador, concessões do operador conferidas item a item contra a matriz, identificadores desconhecidos/vazios/maiúsculos/injeção negados e tudo negado sem sessão.
+- A matriz prepara a base para perfis configuráveis, que permanecem pendentes, agora com ponto único de definição.
+
+Validação: compilação concluída e **5/5 conjuntos de testes aprovados**. Sem alteração de interface, os testes existentes de interface permanecem válidos. Testes em bancos temporários, sem tocar o banco real. Windows e GPU real permanecem pendentes.

@@ -1,6 +1,6 @@
 # Continuidade — MH Store ERP
 
-Este arquivo registra o ponto de parada após a emissão/rotação de código de recuperação para administradores adicionais, segunda entrega da Etapa 1 do roteiro.
+Este arquivo registra o ponto de parada após a matriz de permissões por ação, terceira entrega da Etapa 1 do roteiro.
 
 ## Como retomar
 
@@ -16,7 +16,7 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Estado implementado
 
-- Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código para todos os administradores e troca da própria senha. Leia `docs/autenticacao.md`.
+- Autenticação offline: setup inicial, administrador/operador, gestão de contas, recuperação por código para todos os administradores, troca da própria senha e matriz centralizada de permissões por ação. Leia `docs/autenticacao.md`.
 - Registro central de módulos implementados, nomes, dependências e disponibilidade para menu/configurações.
 - Empresa e perfil persistidos; Estoque/Caixa/PDV configuráveis, com dependências e bloqueios no C++.
 - C++20, Qt 6.4+, QML, Qt SQL e SQLite local.
@@ -33,11 +33,11 @@ O usuário quer um software modular adaptável a diferentes negócios, para futu
 
 ## Última validação
 
-Após a entrega do código de recuperação para administradores adicionais:
+Após a entrega da matriz de permissões por ação:
 
 - Compilação concluída.
-- **5/5 conjuntos de testes passaram**: cadastros, estoque, caixa/PDV (incluindo troca de senha e emissão de código), backup e interface (incluindo diálogo de senha e fluxo de recuperação com código emitido).
-- Interface conferida em 960 × 640, incluindo login, administração de usuários, diálogo **Minha senha** e emissão/uso do código de recuperação.
+- **5/5 conjuntos de testes passaram**: cadastros, estoque, caixa/PDV (incluindo troca de senha, emissão de código e matriz de permissões), backup e interface.
+- Interface inalterada nesta entrega; os fluxos existentes seguem cobertos pelo teste de interface.
 - Os testes usam bancos temporários; não devem acessar os dados reais da aplicação.
 - Windows e renderização em GPU real ainda não foram validados.
 
@@ -89,6 +89,7 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 - Restauração direta exige esquema idêntico e versão 6. Backups 4/5 são rejeitados; recuperação requer versão anterior em ambiente separado, seguida da atualização do banco. Não há conversão automática de arquivos antigos.
 - `core/settings/settings.*`: registro central de módulos, navegação, configuração persistida e validação. A persistência mantém as colunas explícitas da versão 5; acrescentar módulos configuráveis exige revisar esquema e backup. PDV exige Estoque e Caixa. Alterar módulos exige caixa fechado e carrinho vazio. Perfil é descritivo; funcionalidades específicas por segmento ainda não existem.
 - Módulos desabilitados bloqueiam operações no C++, preservando cadastros e histórico. Não são permissões ou licenciamento.
+- Permissões por ação vêm da matriz central `Auth::permissions()` em `core/auth`; alterar concessões exige atualizar a matriz e os testes correspondentes. Perfis permanecem fixos até existir configuração própria.
 - Dinheiro do PDV/caixa usa centavos inteiros. Campos REAL legados permanecem como espelho para compatibilidade. Preserve a coerência ao alterar cadastros e vendas.
 - Quantidades no estoque aceitam três casas decimais; no PDV, somente unidades inteiras, até 10.000 por item.
 - Vendas e movimentações usam transações com bloqueio de escrita antes de verificar saldos. Não separar gravação da venda, pagamento e estoque.
@@ -101,11 +102,11 @@ Repositório Git configurado para `https://github.com/hendelsantos/ERP_Cplus_plu
 
 ## Próxima etapa sugerida — ainda não iniciada
 
-**Próxima tarefa concreta: definir permissões por ação antes de oferecer perfis configuráveis**, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
+**Próxima tarefa concreta: registrar auditoria das alterações de usuários e permissões**, detalhada em [ESTRUTURA_DO_PROJETO.md](ESTRUTURA_DO_PROJETO.md).
 
 Sequência de evolução da base modular:
 
-1. Evoluir autenticação: matriz de permissões por ação, perfis configuráveis e auditoria das alterações de usuários.
+1. Evoluir autenticação: auditoria das alterações de usuários e configurações, depois perfis configuráveis sobre a matriz existente.
 2. Implementar auditoria geral de alterações de cadastros e usuários. Operações de venda/estoque/caixa já possuem vínculo autenticado.
 3. Planejar recursos por segmento (grade, peso, serviços) antes de prometer suporte operacional.
 4. Completar financeiro, fornecedores, comprovantes e distribuição Windows antes da versão comercial.
@@ -124,6 +125,6 @@ Consulte `docs/comercializacao.md` para os critérios de entrega. O filtro por p
 - Inventário em lote e custo médio.
 - Licenciamento, atualização e instaladores.
 
-Não há implementação em andamento a completar neste ponto: a emissão/rotação de código de recuperação foi concluída e validada, com testes de serviço e interface.
+Não há implementação em andamento a completar neste ponto: a matriz de permissões por ação foi concluída e validada, com testes de serviço.
 
 OpenSSL Crypto é dependência de compilação. Testes criam usuários reais em bancos temporários, sem bypass de autenticação no código de produção.
