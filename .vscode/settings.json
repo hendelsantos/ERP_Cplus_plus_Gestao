@@ -1,0 +1,9 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/desktop",
+    "cmake.environment": {
+        "CMAKE_PREFIX_PATH": "${env:HOME}/.local/share/mhstore-qt/usr",
+        "LD_LIBRARY_PATH": "${env:HOME}/.local/share/mhstore-qt/usr/lib/x86_64-linux-gnu:${env:LD_LIBRARY_PATH}",
+        "QT_PLUGIN_PATH": "${env:HOME}/.local/share/mhstore-qt/usr/lib/x86_64-linux-gnu/qt6/plugins",
+        "QML_IMPORT_PATH": "${env:HOME}/.local/share/mhstore-qt/usr/lib/x86_64-linux-gnu/qt6/qml"
+    }
+}

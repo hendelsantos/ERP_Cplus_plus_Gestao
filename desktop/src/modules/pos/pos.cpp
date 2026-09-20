@@ -1,0 +1,381 @@
+#include "../../core/settings/settings.h"
+#include "pos.h"
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QSqlRecord>
+#include <QRegularExpression>
+#include <QLocale>
+
+namespace MHStore {
+namespace {
+constexpr qint64 limit = 100000000000LL;
+bool money(QString input, qint64 &cents)
+{
+    input = input.trimmed();
+    static const QRegularExpression pattern(QStringLiteral("^[0-9]{1,10}([.,][0-9]{1,2})?$"));
+    if (!pattern.match(input).hasMatch()) return false;
+    input.replace(',', '.');
+    const auto parts = input.split('.');
+    cents = parts[0].toLongLong() * 100;
+    if (parts.size() == 2) cents += parts[1].leftJustified(2, '0').toLongLong();
+    return cents <= limit;
+}
+// Shared by the display, withdrawal validation and closing snapshot. Alias c is a cash session.
+QString cashBalanceExpression()
+{
+    return QStringLiteral("c.opening_cents + COALESCE((SELECT SUM(p.amount_cents) "
+        "FROM payments p JOIN sales s ON s.id=p.sale_id WHERE s.cash_session_id=c.id "
+        "AND s.status='completed' AND p.method='cash'),0) + COALESCE((SELECT SUM("
+        "CASE WHEN m.type='supply' THEN m.amount_cents ELSE -m.amount_cents END) "
+        "FROM cash_movements m WHERE m.cash_session_id=c.id),0)");
+}
+QString currency(qint64 cents) { return QLocale("pt_BR").toCurrencyString(cents / 100.0); }
+QVariantList records(QSqlQuery &query)
+{
+    QVariantList result;
+    while (query.next()) {
+        QVariantMap row;
+        for (int i = 0; i < query.record().count(); ++i) row.insert(query.record().fieldName(i), query.value(i));
+        result.append(row);
+    }
+    return result;
+}
+// A transaction acquires the SQLite writer lock before any balance/session checks.
+class Transaction {
+public:
+    QSqlDatabase db = QSqlDatabase::database();
+    bool active = false;
+    bool begin() { QSqlQuery q(db); active = q.exec("BEGIN IMMEDIATE"); return active; }
+    bool commit() { if (!db.commit()) return false; active = false; return true; }
+    ~Transaction() { if (active) db.rollback(); }
+};
+}
+Pos::Pos(QObject *parent) : QObject(parent) { refresh(); }
+bool Pos::fail(const QString &message) { m_error = message; emit changed(); return false; }
+qint64 Pos::total() const
+{
+    qint64 result = 0;
+    for (const auto &item : m_cart) result += item.toMap().value("total_cents").toLongLong();
+    return result;
+}
+void Pos::refresh(const QString &search)
+{
+    m_error.clear();
+    m_search = search;
+    QString term = search.trimmed();
+    term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    QSqlQuery q;
+    q.prepare("SELECT id, code, barcode, name, sale_price_cents, stock_quantity FROM products WHERE active = 1 AND "
+              "(name LIKE :term ESCAPE '\\' OR code LIKE :term ESCAPE '\\' OR barcode LIKE :term ESCAPE '\\') ORDER BY name COLLATE NOCASE");
+    q.bindValue(":term", "%" + term + "%");
+    if (!q.exec()) { fail(q.lastError().text()); return; }
+    m_products = records(q);
+    if (!q.exec(QStringLiteral("SELECT c.*, datetime(c.opened_at, 'localtime') AS opened_local, "
+                "datetime(c.closed_at, 'localtime') AS closed_local, %1 AS cash_expected, "
+                "COALESCE((SELECT SUM(m.amount_cents) FROM cash_movements m WHERE m.cash_session_id=c.id AND m.type='supply'),0) AS supply_cents, "
+                "COALESCE((SELECT SUM(m.amount_cents) FROM cash_movements m WHERE m.cash_session_id=c.id AND m.type='withdrawal'),0) AS withdrawal_cents, "
+                "COALESCE((SELECT SUM(s.total_cents) FROM sales s WHERE s.cash_session_id = c.id AND s.status = 'completed'),0) AS sales_cents "
+                "FROM cash_sessions c ORDER BY c.id DESC LIMIT 100").arg(cashBalanceExpression()))) {
+        fail(q.lastError().text()); return;
+    }
+    m_sessions = records(q);
+    m_cash.clear();
+    for (const auto &session : m_sessions) if (session.toMap().value("status") == "open") m_cash = session.toMap();
+    selectCashHistory(m_historySession);
+}
+void Pos::refreshCustomers()
+{
+    m_customers = {QVariantMap{{"id",0},{"label",QStringLiteral("Consumidor não identificado")}}};
+    QSqlQuery q;
+    if (!q.exec("SELECT id, name FROM customers WHERE active=1 ORDER BY name COLLATE NOCASE")) {
+        fail(q.lastError().text()); emit customersChanged(); return;
+    }
+    while (q.next()) m_customers.append(QVariantMap{{"id",q.value(0)},
+        {"label",QString("%1 (#%2)").arg(q.value(1).toString(),q.value(0).toString())}});
+    emit customersChanged();
+}
+
+void Pos::refreshDashboard()
+{
+    m_dashboard.clear();
+    m_dashboardError.clear();
+    QSqlQuery q;
+    // One statement provides a consistent SQLite snapshot for all indicators.
+    const QString statement = QStringLiteral(
+        "SELECT (SELECT COALESCE(SUM(total_cents),0) FROM sales WHERE status='completed' "
+        "AND date(created_at,'localtime')=date('now','localtime')) AS today_cents, "
+        "(SELECT COUNT(*) FROM sales WHERE status='completed' AND date(created_at,'localtime')=date('now','localtime')) AS today_count, "
+        "(SELECT COALESCE(SUM(total_cents),0) FROM sales WHERE status='completed' "
+        "AND strftime('%Y-%m',created_at,'localtime')=strftime('%Y-%m','now','localtime')) AS month_cents, "
+        "(SELECT COUNT(*) FROM products WHERE active=1 AND stock_quantity<=minimum_stock) AS low_stock, "
+        "(SELECT COUNT(*) FROM products WHERE active=1 AND stock_quantity<=0) AS no_stock, "
+        "(SELECT COUNT(*) FROM cash_sessions WHERE status='open') AS cash_open, "
+        "COALESCE((SELECT %1 FROM cash_sessions c WHERE status='open'),0) AS cash_expected, "
+        "datetime('now','localtime') AS updated_at").arg(cashBalanceExpression());
+    if (!q.exec(statement)) m_dashboardError = q.lastError().text();
+    else {
+        const auto rows = records(q);
+        if (!rows.isEmpty()) m_dashboard = rows.first().toMap();
+    }
+    emit dashboardChanged();
+}
+
+void Pos::searchSales(const QString &number, int page, int customerId)
+{
+    m_sales.clear();
+    m_customerSummary.clear();
+    m_moreSales = false;
+    m_salesError.clear();
+    const auto input = number.trimmed();
+    bool validNumber = false;
+    const qint64 id = input.toLongLong(&validNumber);
+    static const QRegularExpression digits(QStringLiteral("^[0-9]+$"));
+    if (customerId < 0 || page < 0 || page > 1000000 || (!input.isEmpty() && (!validNumber || id <= 0 || !digits.match(input).hasMatch()))) {
+        m_salesError = QStringLiteral("Informe um número de venda válido.");
+        emit salesChanged();
+        return;
+    }
+    QSqlQuery q;
+    if (customerId > 0) {
+        q.prepare("SELECT c.id, c.name, c.active, COUNT(s.id) AS purchase_count, "
+                  "COALESCE(SUM(s.total_cents),0) AS spent_cents, "
+                  "datetime(MAX(s.created_at),'localtime') AS last_purchase "
+                  "FROM customers c LEFT JOIN sales s ON s.customer_id=c.id AND s.status='completed' "
+                  "WHERE c.id=? GROUP BY c.id");
+        q.addBindValue(customerId);
+        if (!q.exec()) m_salesError = q.lastError().text();
+        else {
+            const auto rows = records(q);
+            if (rows.isEmpty()) m_salesError = QStringLiteral("Cliente não encontrado.");
+            else m_customerSummary = rows.first().toMap();
+        }
+        if (!m_salesError.isEmpty()) { emit salesChanged(); return; }
+    }
+    q.prepare("SELECT s.id, s.cash_session_id, s.total_cents, s.status, s.operator_name, "
+              "datetime(s.created_at,'localtime') AS local_created_at, p.method "
+              "FROM sales s LEFT JOIN payments p ON p.sale_id=s.id "
+              "WHERE (?=0 OR s.id=?) AND (?=0 OR (s.customer_id=? AND s.status='completed')) ORDER BY s.id DESC LIMIT 51 OFFSET ?");
+    q.addBindValue(input.isEmpty() ? 0 : id);
+    q.addBindValue(input.isEmpty() ? 0 : id);
+    q.addBindValue(customerId);
+    q.addBindValue(customerId);
+    q.addBindValue(page * 50);
+    if (!q.exec()) { m_salesError = q.lastError().text(); m_customerSummary.clear(); }
+    else {
+        m_sales = records(q);
+        m_moreSales = m_sales.size() > 50;
+        if (m_moreSales) m_sales.removeLast();
+    }
+    emit salesChanged();
+}
+
+bool Pos::loadSale(int saleId)
+{
+    m_selectedSale.clear();
+    m_saleItems.clear();
+    m_salesError.clear();
+    QSqlQuery q;
+    q.prepare("SELECT s.*, datetime(s.created_at,'localtime') AS local_created_at, p.method, "
+              "p.amount_cents AS paid_cents, p.tendered_cents, p.change_cents, c.name AS customer_name "
+              "FROM sales s LEFT JOIN payments p ON p.sale_id=s.id LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?");
+    q.addBindValue(saleId);
+    if (!q.exec()) m_salesError = q.lastError().text();
+    else {
+        const auto rows = records(q);
+        if (rows.isEmpty()) m_salesError = QStringLiteral("Venda não encontrada.");
+        else {
+            const auto sale = rows.first().toMap();
+            q.prepare("SELECT product_code, product_name, quantity, unit_price_cents, total_cents "
+                      "FROM sale_items WHERE sale_id=? ORDER BY id");
+            q.addBindValue(saleId);
+            if (!q.exec()) m_salesError = q.lastError().text();
+            else {
+                m_saleItems = records(q);
+                m_selectedSale = sale;
+            }
+        }
+    }
+    emit salesChanged();
+    return m_salesError.isEmpty();
+}
+
+bool Pos::add(int productId)
+{
+    if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
+    for (const auto &entry : m_cart) {
+        const auto row = entry.toMap();
+        if (row.value("id").toInt() == productId) return setQuantity(productId, row.value("quantity").toInt()+1);
+    }
+    QSqlQuery q;
+    q.prepare("SELECT id, code, name, sale_price_cents, stock_quantity FROM products WHERE id = ? AND active = 1");
+    q.addBindValue(productId);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!q.next()) return fail("Produto não encontrado ou inativo.");
+    const qint64 price = q.value(3).toLongLong();
+    if (price <= 0 || price > limit) return fail("Informe um preço de venda maior que zero no cadastro.");
+    if (q.value(4).toDouble() < 1) return fail("Estoque insuficiente.");
+    if (total() + price > limit) return fail("Valor da venda acima do limite.");
+    m_cart.append(QVariantMap{{"id",productId},{"code",q.value(1)},{"name",q.value(2)},
+        {"unit_price_cents",price},{"quantity",1},{"total_cents",price}});
+    m_error.clear(); emit changed(); return true;
+}
+bool Pos::setQuantity(int productId, int quantity)
+{
+    if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
+    if (quantity < 0 || quantity > 10000) return fail("Quantidade deve estar entre 0 e 10.000 unidades.");
+    for (qsizetype i = 0; i < m_cart.size(); ++i) {
+        auto row = m_cart[i].toMap();
+        if (row.value("id").toInt() != productId) continue;
+        if (quantity == 0) { m_cart.removeAt(i); m_error.clear(); emit changed(); return true; }
+        QSqlQuery q;
+        q.prepare("SELECT stock_quantity FROM products WHERE id = ? AND active = 1");
+        q.addBindValue(productId);
+        if (!q.exec()) return fail(q.lastError().text());
+        if (!q.next() || q.value(0).toDouble() < quantity) return fail("Produto inativo ou estoque insuficiente.");
+        const auto line = row.value("unit_price_cents").toLongLong() * quantity;
+        if (total() - row.value("total_cents").toLongLong() + line > limit) return fail("Valor da venda acima do limite.");
+        row["quantity"] = quantity; row["total_cents"] = line; m_cart[i] = row;
+        m_error.clear(); emit changed(); return true;
+    }
+    return fail("Item não encontrado no carrinho.");
+}
+void Pos::clearCart() { m_cart.clear(); m_error.clear(); emit changed(); }
+bool Pos::openCash(const QString &amount, const QString &operatorName)
+{
+    if (!Settings::enabled("cash")) return fail("Módulo desabilitado nas configurações da empresa.");
+    qint64 cents;
+    if (!money(amount,cents) || operatorName.trimmed().isEmpty()) return fail("Informe o responsável e um valor de abertura válido, com até duas casas decimais.");
+    Transaction tx;
+    if (!tx.begin()) return fail("Banco ocupado. Tente novamente.");
+    QSqlQuery q;
+    if (!q.exec("SELECT id FROM cash_sessions WHERE status = 'open'")) return fail(q.lastError().text());
+    if (q.next()) return fail("Já existe um caixa aberto.");
+    q.prepare("INSERT INTO cash_sessions(opening_balance, opening_cents, operator_name) VALUES(?,?,?)");
+    q.addBindValue(cents / 100.0); q.addBindValue(cents); q.addBindValue(operatorName.trimmed());
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!tx.commit()) return fail(tx.db.lastError().text());
+    refresh(m_search); return true;
+}
+bool Pos::closeCash(int sessionId, const QString &counted, const QString &operatorName)
+{
+    if (!Settings::enabled("cash")) return fail("Módulo desabilitado nas configurações da empresa.");
+    qint64 cents;
+    if (!money(counted,cents) || operatorName.trimmed().isEmpty()) return fail("Informe o responsável e o dinheiro contado, com até duas casas decimais.");
+    Transaction tx;
+    if (!tx.begin()) return fail("Banco ocupado. Tente novamente.");
+    QSqlQuery q;
+    q.prepare(QStringLiteral("SELECT %1 FROM cash_sessions c WHERE id=? AND status='open'").arg(cashBalanceExpression()));
+    q.addBindValue(sessionId);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!q.next()) return fail("Este caixa já foi fechado ou não existe.");
+    const auto expected = q.value(0).toLongLong(); q.finish();
+    q.prepare("UPDATE cash_sessions SET status='closed', closed_at=CURRENT_TIMESTAMP, expected_cents=?, counted_cents=?, closing_balance=?, closed_by=? WHERE id=?");
+    q.addBindValue(expected); q.addBindValue(cents); q.addBindValue(cents/100.0); q.addBindValue(operatorName.trimmed()); q.addBindValue(sessionId);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!tx.commit()) return fail(tx.db.lastError().text());
+    refresh(m_search); return true;
+}
+void Pos::selectCashHistory(int sessionId)
+{
+    m_historySession = sessionId;
+    QSqlQuery q;
+    q.prepare("SELECT *, datetime(created_at, 'localtime') AS local_created_at FROM cash_movements "
+              "WHERE cash_session_id=? ORDER BY id DESC LIMIT 200");
+    q.addBindValue(sessionId);
+    if (!q.exec()) { m_cashMovements.clear(); fail(q.lastError().text()); return; }
+    m_cashMovements = records(q);
+    emit changed();
+}
+
+bool Pos::moveCash(int sessionId, const QString &type, const QString &amount,
+                   const QString &reason, const QString &operatorName)
+{
+    if (!Settings::enabled("cash")) return fail("Módulo desabilitado nas configurações da empresa.");
+    if (type != "supply" && type != "withdrawal") return fail("Tipo de movimentação de caixa inválido.");
+    qint64 cents;
+    if (!money(amount, cents) || cents == 0)
+        return fail("Informe um valor maior que zero, com até duas casas decimais.");
+    if (reason.trimmed().isEmpty() || operatorName.trimmed().isEmpty())
+        return fail("Informe o motivo e o responsável pela movimentação.");
+    Transaction tx;
+    if (!tx.begin()) return fail("Banco ocupado. Tente novamente.");
+    QSqlQuery q;
+    q.prepare(QStringLiteral("SELECT %1 FROM cash_sessions c WHERE id=? AND status='open'").arg(cashBalanceExpression()));
+    q.addBindValue(sessionId);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!q.next()) return fail("Este caixa já foi fechado ou não existe.");
+    const qint64 previous = q.value(0).toLongLong();
+    q.finish();
+    if (type == "withdrawal" && cents > previous) return fail("Dinheiro insuficiente no caixa para esta sangria.");
+    const qint64 balance = previous + (type == "supply" ? cents : -cents);
+    if (balance > limit) return fail("Saldo do caixa acima do limite permitido.");
+    q.prepare("INSERT INTO cash_movements(cash_session_id,type,amount_cents,previous_cents,balance_cents,reason,operator_name) "
+              "VALUES(?,?,?,?,?,?,?)");
+    for (const auto &value : QVariantList{sessionId,type,cents,previous,balance,reason.trimmed(),operatorName.trimmed()})
+        q.addBindValue(value);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!tx.commit()) return fail(tx.db.lastError().text());
+    refresh(m_search);
+    return true;
+}
+
+bool Pos::checkout(int sessionId, const QString &method, const QString &tendered, const QString &operatorName, int customerId)
+{
+    if (!Settings::enabled("pos")) return fail("Módulo desabilitado nas configurações da empresa.");
+    if (m_cart.isEmpty()) return fail("Adicione produtos ao carrinho.");
+    if (operatorName.trimmed().isEmpty()) return fail("Informe o responsável pela venda.");
+    if (!QStringList{"cash","pix","credit","debit","other"}.contains(method)) return fail("Forma de pagamento inválida.");
+    const qint64 amount = total();
+    qint64 received = amount;
+    if (method == "cash" && (!money(tendered,received) || received < amount)) return fail("Dinheiro recebido insuficiente ou inválido.");
+    Transaction tx;
+    if (!tx.begin()) return fail("Banco ocupado. Tente novamente.");
+    QSqlQuery q;
+    q.prepare("SELECT id FROM cash_sessions WHERE id=? AND status='open'"); q.addBindValue(sessionId);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!q.next()) return fail("Abra um caixa antes de finalizar a venda.");
+    q.finish();
+    if (customerId < 0) return fail("Cliente inválido.");
+    QString customerName;
+    if (customerId > 0) {
+        q.prepare("SELECT name FROM customers WHERE id=? AND active=1");
+        q.addBindValue(customerId);
+        if (!q.exec()) return fail(q.lastError().text());
+        if (!q.next()) return fail("Cliente inexistente ou inativo. Selecione outro cliente ou consumidor não identificado.");
+        customerName = q.value(0).toString();
+        q.finish();
+    }
+    q.prepare("INSERT INTO sales(cash_session_id,total_amount,total_cents,operator_name,customer_id) VALUES(?,?,?,?,?)");
+    q.addBindValue(sessionId); q.addBindValue(amount/100.0); q.addBindValue(amount); q.addBindValue(operatorName.trimmed());
+    q.addBindValue(customerId > 0 ? QVariant(customerId) : QVariant());
+    if (!q.exec()) return fail(q.lastError().text());
+    const auto saleId = q.lastInsertId().toLongLong();
+    QString receipt = QString("Venda #%1\nCliente: %2\n").arg(saleId).arg(customerId > 0 ? customerName : QStringLiteral("Consumidor não identificado"));
+    for (const auto &entry : m_cart) {
+        const auto row = entry.toMap();
+        const int id = row.value("id").toInt(), quantity = row.value("quantity").toInt();
+        q.prepare("SELECT stock_quantity, sale_price_cents, code, name FROM products WHERE id=? AND active=1"); q.addBindValue(id);
+        if (!q.exec()) return fail(q.lastError().text());
+        if (!q.next() || q.value(0).toDouble() < quantity) return fail("Produto inativo ou saldo insuficiente. Revise o carrinho.");
+        if (q.value(1).toLongLong() != row.value("unit_price_cents").toLongLong()) return fail("O preço de um produto mudou. Remova e adicione o item novamente.");
+        const double previous = q.value(0).toDouble();
+        const auto code = q.value(2), name = q.value(3); q.finish();
+        q.prepare("UPDATE products SET stock_quantity=stock_quantity-? WHERE id=?"); q.addBindValue(quantity); q.addBindValue(id);
+        if (!q.exec()) return fail(q.lastError().text());
+        q.prepare("INSERT INTO sale_items(sale_id,product_id,product_code,product_name,quantity,unit_price_cents,total_cents) VALUES(?,?,?,?,?,?,?)");
+        for (const auto &value : QVariantList{saleId,id,code,name,quantity,row.value("unit_price_cents"),row.value("total_cents")}) q.addBindValue(value);
+        if (!q.exec()) return fail(q.lastError().text());
+        q.prepare("INSERT INTO inventory_movements(product_id,type,quantity,previous_balance,balance,reason,operator_name) VALUES(?,'exit',?,?,?,?,?)");
+        for (const auto &value : QVariantList{id,-quantity,previous,previous-quantity,QString("Venda #%1").arg(saleId),operatorName.trimmed()}) q.addBindValue(value);
+        if (!q.exec()) return fail(q.lastError().text());
+        receipt += QString("%1 × %2: %3\n").arg(quantity).arg(name.toString(),currency(row.value("total_cents").toLongLong()));
+    }
+    q.prepare("INSERT INTO payments(sale_id,method,amount_cents,tendered_cents,change_cents) VALUES(?,?,?,?,?)");
+    for (const auto &value : QVariantList{saleId,method,amount,received,received-amount}) q.addBindValue(value);
+    if (!q.exec()) return fail(q.lastError().text());
+    if (!tx.commit()) return fail(tx.db.lastError().text());
+    m_receipt = receipt + QString("Total: %1\nTroco: %2").arg(currency(amount),currency(received-amount));
+    m_cart.clear(); refresh(m_search); return true;
+}
+}

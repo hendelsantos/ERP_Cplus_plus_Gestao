@@ -1,0 +1,27 @@
+# Compilação local e arquivos gerados
+/build/
+/build-*/
+/cmake-build-*/
+CMakeUserPresets.json
+*.user
+
+# Dados locais e backups
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.mhb
+*.lock
+
+# Segredos e configurações locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Arquivos temporários
+*.log
+*.swp
+*~
+.DS_Store

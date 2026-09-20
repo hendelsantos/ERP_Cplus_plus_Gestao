@@ -1,0 +1,417 @@
+#include "core/settings/settings.h"
+#include "core/database/database.h"
+#include "modules/pos/pos.h"
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QTemporaryDir>
+#include <QtTest>
+
+class PosTest : public QObject {
+    Q_OBJECT
+    QTemporaryDir directory;
+    QString path;
+    QVariant scalar(const QString &sql) { QSqlQuery q(sql); return q.next() ? q.value(0) : QVariant(); }
+private slots:
+    void init() {
+        path=directory.filePath(QUuid::createUuid().toString()+".sqlite");
+        MHStore::Database::DatabaseManager db;
+        QVERIFY(db.initialize(nullptr,path));
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO products(code,name,sale_price,sale_price_cents,stock_quantity) VALUES('P1','Produto',19.90,1990,10),('P2','Outro',0.10,10,5)"));
+    }
+    void cleanup() { QSqlDatabase::database().close(); QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection); }
+    void moduleRegistry() {
+        MHStore::Settings settings;
+        const QVariantMap disabled={{"inventory",false},{"cash",false},{"pos",false}};
+        QVERIFY(settings.saveModules("Loja","general",disabled));
+        QVERIFY(settings.navigation().contains("Vendas"));
+        QVERIFY(settings.navigation().contains("Clientes"));
+        QVERIFY(!settings.navigation().contains("PDV"));
+        QVERIFY(!settings.navigation().contains("Estoque"));
+        QVERIFY(!MHStore::Settings::enabled("unknown"));
+        QVERIFY(!MHStore::Settings::enabled("pos; DROP TABLE products"));
+        QVERIFY(MHStore::Settings::enabled("sales"));
+        auto selection=disabled;
+        selection["pos"]=true;
+        QVERIFY(!settings.saveModules("Loja","general",selection));
+        selection["inventory"]=true;
+        QVERIFY(!settings.saveModules("Loja","general",selection));
+        QVERIFY(settings.message().contains("Caixa"));
+        selection["cash"]=true;
+        QVERIFY(settings.saveModules("Loja","general",selection));
+        QVERIFY(settings.navigation().contains("PDV"));
+        selection["unknown"]=true;
+        QVERIFY(!settings.saveModules("Loja","general",selection));
+        QVERIFY(!settings.saveModules("Loja","general",{}));
+        selection=disabled;
+        selection["pos"]=QString("false");
+        QVERIFY(!settings.saveModules("Loja","general",selection));
+        QCOMPARE(settings.values().value("pos").toBool(),true);
+        QSet<QString> ids;
+        for (const auto &value : settings.modules()) {
+            const auto entry=value.toMap();
+            const auto id=entry.value("id").toString();
+            QVERIFY(!ids.contains(id));
+            ids.insert(id);
+            QVERIFY(!entry.value("label").toString().isEmpty());
+        }
+        for (const auto &value : settings.modules())
+            for (const auto &dependency : value.toMap().value("dependencies").toStringList())
+                QVERIFY(ids.contains(dependency));
+        // Even an externally corrupted dependency must not enable checkout.
+        QSqlQuery q;
+        QVERIFY(q.exec("PRAGMA ignore_check_constraints=ON"));
+        QVERIFY(q.exec("UPDATE business_settings SET cash=0,pos=1"));
+        QVERIFY(!MHStore::Settings::enabled("pos"));
+        MHStore::Settings reopened;
+        QVERIFY(!reopened.navigation().contains("PDV"));
+        QVERIFY(q.exec("PRAGMA ignore_check_constraints=OFF"));
+        QVERIFY(settings.saveModules("Loja","general",disabled));
+    }
+    void moduleSettings() {
+        MHStore::Settings settings;
+        MHStore::Pos pos;
+        QVERIFY(!settings.save("", "general",true,true,true));
+        QVERIFY(!settings.save("Loja", "invalid",true,true,true));
+        QVERIFY(!settings.save("Loja", "general",false,true,true));
+        QVERIFY(settings.save("Loja", "fashion",false,false,false));
+        QVERIFY(!pos.add(1));
+        QVERIFY(!pos.openCash("0","Ana"));
+        QVERIFY(!pos.checkout(1,"pix","","Ana"));
+        QSqlDatabase::database().close();
+        QVERIFY(QSqlDatabase::database().open());
+        MHStore::Settings reopened;
+        QCOMPARE(reopened.values().value("company").toString(),QString("Loja"));
+        QVERIFY(!MHStore::Settings::enabled("pos"));
+        QVERIFY(settings.save("Loja", "general",true,true,true));
+        QVERIFY(pos.add(1));
+        settings.hasPendingCart=[&pos] { return !pos.cart().isEmpty(); };
+        QVERIFY(!settings.save("Loja", "general",false,false,false));
+        pos.clearCart();
+        QVERIFY(pos.openCash("0","Ana"));
+        QVERIFY(!settings.save("Loja", "general",false,false,false));
+        QVERIFY(settings.save("Outro nome", "market",true,true,true));
+        QVERIFY(pos.closeCash(pos.cash().value("id").toInt(),"0","Ana"));
+        QVERIFY(settings.save("Loja", "services",false,false,false));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM products").toInt(),2);
+    }
+    void saleAndCash() {
+        MHStore::Pos pos;
+        QVERIFY(pos.add(1)); QVERIFY(pos.add(1)); QVERIFY(pos.add(2));
+        QCOMPARE(pos.total(),3990);
+        QVERIFY(!pos.checkout(0,"cash","50","Ana"));
+        QVERIFY(!pos.openCash("1.001","Ana"));
+        QVERIFY(pos.openCash("100,00","Ana"));
+        const int session=pos.cash().value("id").toInt();
+        QVERIFY(!pos.openCash("0","Ana"));
+        QVERIFY(!pos.checkout(session,"cash","39,89","Ana"));
+        QVERIFY(pos.checkout(session,"cash","50","Ana"));
+        QCOMPARE(pos.cart().size(),0);
+        QCOMPARE(pos.cash().value("cash_expected").toLongLong(),13990);
+        QCOMPARE(scalar("SELECT change_cents FROM payments").toInt(),1010);
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),8);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM inventory_movements").toInt(),2);
+        QVERIFY(!pos.checkout(session,"cash","50","Ana"));
+        QVERIFY(pos.add(2)); QVERIFY(pos.checkout(session,"pix","","Ana"));
+        QCOMPARE(pos.cash().value("cash_expected").toLongLong(),13990);
+        QVERIFY(pos.closeCash(session,"139,00","Bia"));
+        QVERIFY(pos.cash().isEmpty());
+        QCOMPARE(scalar("SELECT expected_cents-counted_cents FROM cash_sessions").toInt(),90);
+        QVERIFY(!pos.closeCash(session,"139","Bia"));
+        QVERIFY(pos.add(1));
+        QVERIFY(!pos.checkout(session,"debit","","Ana"));
+        QVERIFY(pos.openCash("0","Ana"));
+        QVERIFY(!pos.checkout(session,"debit","","Ana"));
+        QSqlDatabase::database().close();
+        MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        pos.refresh();
+        QCOMPARE(pos.sessions().size(),2);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),2);
+    }
+    void atomicFailure() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("0","Ana"));
+        const int session=pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1)); QVERIFY(pos.add(2));
+        QSqlQuery q;
+        QVERIFY(q.exec("CREATE TRIGGER reject_payment BEFORE INSERT ON payments BEGIN SELECT RAISE(ABORT,'Falha simulada'); END"));
+        QVERIFY(!pos.checkout(session,"credit","","Ana"));
+        QCOMPARE(pos.cart().size(),2);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sale_items").toInt(),0);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM inventory_movements").toInt(),0);
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),10);
+        QVERIFY(q.exec("DROP TRIGGER reject_payment"));
+        QVERIFY(q.exec("UPDATE products SET stock_quantity=0 WHERE id=2"));
+        QVERIFY(!pos.checkout(session,"credit","","Ana"));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),10);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+        QVERIFY(q.exec("UPDATE products SET stock_quantity=5, sale_price_cents=20 WHERE id=2"));
+        QVERIFY(!pos.checkout(session,"credit","","Ana"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+        QVERIFY(pos.setQuantity(2,0)); QVERIFY(pos.add(2));
+        QVERIFY(pos.checkout(session,"credit","","Ana"));
+    }
+    void cashMovementsAndClosing() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("100,00","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.moveCash(session,"supply","50,25","Troco inicial","Ana"));
+        QVERIFY(pos.add(1)); QVERIFY(pos.checkout(session,"cash","20,00","Ana"));
+        QVERIFY(pos.add(2)); QVERIFY(pos.checkout(session,"pix","","Ana"));
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),17015);
+        QVERIFY(pos.moveCash(session,"withdrawal","70,15","Depósito","Bia"));
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),10000);
+        QCOMPARE(pos.cash().value("supply_cents").toInt(),5025);
+        QCOMPARE(pos.cash().value("withdrawal_cents").toInt(),7015);
+        pos.selectCashHistory(session);
+        QCOMPARE(pos.cashMovements().size(),2);
+        auto last = pos.cashMovements().first().toMap();
+        QCOMPARE(last.value("previous_cents").toInt(),17015);
+        QCOMPARE(last.value("balance_cents").toInt(),10000);
+        QCOMPARE(last.value("operator_name").toString(),QString("Bia"));
+        QVERIFY(pos.closeCash(session,"99,50","Ana"));
+        QCOMPARE(scalar("SELECT expected_cents FROM cash_sessions").toInt(),10000);
+        QCOMPARE(scalar("SELECT counted_cents FROM cash_sessions").toInt(),9950);
+        QVERIFY(!pos.moveCash(session,"supply","1","Após fechar","Ana"));
+        QVERIFY(pos.openCash("0","Ana"));
+        QVERIFY(!pos.moveCash(session,"withdrawal","1","Sessão antiga","Ana"));
+        QSqlDatabase::database().close();
+        MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        pos.refresh();
+        pos.selectCashHistory(session);
+        QCOMPARE(pos.cashMovements().size(),2);
+        pos.selectCashHistory(pos.cash().value("id").toInt());
+        QCOMPARE(pos.cashMovements().size(),0);
+    }
+    void cashMovementValidationAndStaleBalance() {
+        MHStore::Pos pos;
+        QVERIFY(!pos.moveCash(999,"supply","1","Teste","Ana"));
+        QVERIFY(pos.openCash("100","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        MHStore::Pos stale;
+        for (const auto &amount : {"0","-1","nan","1,001","1.000,00","1000000001"})
+            QVERIFY(!pos.moveCash(session,"supply",amount,"Teste","Ana"));
+        QVERIFY(!pos.moveCash(session,"invalid","1","Teste","Ana"));
+        QVERIFY(!pos.moveCash(session,"supply","1"," ","Ana"));
+        QVERIFY(!pos.moveCash(session,"supply","1","Teste"," "));
+        QVERIFY(pos.moveCash(session,"withdrawal","60","Retirada","Ana"));
+        QCOMPARE(stale.cash().value("cash_expected").toInt(),10000);
+        QVERIFY(!stale.moveCash(session,"withdrawal","60","Outra retirada","Bia"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM cash_movements").toInt(),1);
+        QVERIFY(stale.moveCash(session,"withdrawal","40","Zerar gaveta","Bia"));
+        QCOMPARE(stale.cash().value("cash_expected").toInt(),0);
+        QSqlQuery q;
+        QVERIFY(q.exec("CREATE TRIGGER reject_cash_movement BEFORE INSERT ON cash_movements BEGIN SELECT RAISE(ABORT,'Falha simulada'); END"));
+        QVERIFY(!pos.moveCash(session,"supply","10","Teste","Ana"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM cash_movements").toInt(),2);
+        QVERIFY(q.exec("DROP TRIGGER reject_cash_movement"));
+        QVERIFY(pos.moveCash(session,"supply","10","Teste","Ana"));
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),1000);
+    }
+    void upgradeFromVersionThree() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("50","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1)); QVERIFY(pos.checkout(session,"cash","20","Ana"));
+        QSqlQuery q;
+        QVERIFY(q.exec("DROP TABLE cash_movements"));
+        QVERIFY(q.exec("DROP TABLE business_settings"));
+        QVERIFY(q.exec("DELETE FROM schema_migrations WHERE version=5"));
+        QVERIFY(q.exec("DELETE FROM schema_migrations WHERE version=4"));
+        QSqlDatabase::database().close();
+        MHStore::Database::DatabaseManager db;
+        QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(db.initialize(nullptr,path));
+        pos.refresh();
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),6990);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),1);
+        QCOMPARE(scalar("SELECT COUNT(*) FROM schema_migrations").toInt(),5);
+        QVERIFY(pos.moveCash(session,"withdrawal","9,90","Após migração","Ana"));
+        QCOMPARE(pos.cash().value("cash_expected").toInt(),6000);
+    }
+    void persistedSalesHistory() {
+        MHStore::Pos pos;
+        QVERIFY(pos.openCash("0","Ana"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.checkout(session,"cash","20","Ana"));
+        const int saleId = scalar("SELECT id FROM sales").toInt();
+        QSqlQuery q;
+        QVERIFY(q.exec("UPDATE products SET name='Novo nome', sale_price_cents=5000, active=0 WHERE id=1"));
+        QSqlDatabase::database().close();
+        MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        MHStore::Pos reopened;
+        reopened.searchSales(QString::number(saleId));
+        QCOMPARE(reopened.sales().size(),1);
+        QVERIFY(reopened.loadSale(saleId));
+        QCOMPARE(reopened.saleItems().first().toMap().value("product_name").toString(),QString("Produto"));
+        QCOMPARE(reopened.saleItems().first().toMap().value("unit_price_cents").toInt(),1990);
+        QCOMPARE(reopened.selectedSale().value("change_cents").toInt(),10);
+        QCOMPARE(reopened.selectedSale().value("operator_name").toString(),QString("Ana"));
+        QVERIFY(!reopened.loadSale(999));
+        QVERIFY(reopened.selectedSale().isEmpty());
+        QVERIFY(reopened.saleItems().isEmpty());
+        reopened.searchSales("' OR 1=1 --");
+        QVERIFY(reopened.sales().isEmpty());
+        QVERIFY(!reopened.salesError().isEmpty());
+        reopened.searchSales("999");
+        QVERIFY(reopened.sales().isEmpty());
+        QVERIFY(reopened.salesError().isEmpty());
+    }
+    void paginatedAndLegacySales() {
+        QSqlQuery q;
+        for (int i=0;i<52;++i) QVERIFY(q.exec("INSERT INTO sales(total_amount,total_cents) VALUES(1.25,125)"));
+        MHStore::Pos pos;
+        pos.searchSales();
+        QCOMPARE(pos.sales().size(),50);
+        QVERIFY(pos.moreSales());
+        QCOMPARE(pos.sales().first().toMap().value("id").toInt(),52);
+        pos.searchSales("",1);
+        QCOMPARE(pos.sales().size(),2);
+        QVERIFY(!pos.moreSales());
+        QCOMPARE(pos.sales().first().toMap().value("id").toInt(),2);
+        QVERIFY(pos.loadSale(1));
+        QCOMPARE(pos.selectedSale().value("total_cents").toInt(),125);
+        QVERIFY(pos.selectedSale().value("method").isNull());
+        QVERIFY(pos.saleItems().isEmpty());
+        pos.searchSales("",-1);
+        QVERIFY(!pos.salesError().isEmpty());
+    }
+    void dashboardMetrics() {
+        MHStore::Pos pos;
+        pos.refreshDashboard();
+        QVERIFY(pos.dashboardError().isEmpty());
+        QCOMPARE(pos.dashboard().value("today_cents").toInt(),0);
+        QCOMPARE(pos.dashboard().value("today_count").toInt(),0);
+        QCOMPARE(pos.dashboard().value("cash_open").toInt(),0);
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO sales(total_cents) VALUES(1000),(2000)"));
+        QVERIFY(q.exec("INSERT INTO sales(total_cents,status) VALUES(9000,'cancelled')"));
+        QVERIFY(q.exec("INSERT INTO sales(total_cents,created_at) VALUES(700,datetime('now','localtime','start of month','-1 second','utc'))"));
+        QVERIFY(q.exec("UPDATE products SET stock_quantity=0, minimum_stock=2 WHERE id=1"));
+        QVERIFY(q.exec("UPDATE products SET stock_quantity=0, active=0 WHERE id=2"));
+        QVERIFY(pos.openCash("100","Ana"));
+        const int session=pos.cash().value("id").toInt();
+        QVERIFY(pos.moveCash(session,"supply","50","Troco","Ana"));
+        QVERIFY(pos.moveCash(session,"withdrawal","20","Retirada","Ana"));
+        pos.refreshDashboard();
+        QCOMPARE(pos.dashboard().value("today_cents").toInt(),3000);
+        QCOMPARE(pos.dashboard().value("today_count").toInt(),2);
+        QCOMPARE(pos.dashboard().value("month_cents").toInt(),3000);
+        QCOMPARE(pos.dashboard().value("low_stock").toInt(),1);
+        QCOMPARE(pos.dashboard().value("no_stock").toInt(),1);
+        QCOMPARE(pos.dashboard().value("cash_expected").toInt(),13000);
+        QVERIFY(pos.closeCash(session,"130","Ana"));
+        pos.refreshDashboard();
+        QCOMPARE(pos.dashboard().value("cash_open").toInt(),0);
+        QCOMPARE(pos.dashboard().value("cash_expected").toInt(),0);
+        QVERIFY(q.exec("ALTER TABLE sales RENAME TO unavailable_sales"));
+        pos.refreshDashboard();
+        QVERIFY(!pos.dashboardError().isEmpty());
+        QVERIFY(pos.dashboard().isEmpty());
+    }
+    void customerPurchaseHistory() {
+        {
+            QSqlQuery q;
+            QVERIFY(q.exec("INSERT INTO customers(name,active) VALUES('Inativo',0),('Sem compras',1)"));
+            for (int i=0; i<52; ++i)
+                QVERIFY(q.exec("INSERT INTO sales(customer_id,total_cents,created_at) VALUES(1,125,'2026-09-10 12:00:00')"));
+            QVERIFY(q.exec("INSERT INTO sales(customer_id,total_cents,status,created_at) VALUES(1,90000,'cancelled','2026-09-11 12:00:00')"));
+            QVERIFY(q.exec("INSERT INTO sales(total_cents) VALUES(99999)"));
+            QVERIFY(q.exec("INSERT INTO sales(customer_id,total_cents,status) VALUES(2,800,'cancelled')"));
+        }
+        QSqlDatabase::database().close();
+        QVERIFY(QSqlDatabase::database().open());
+        MHStore::Pos pos;
+        pos.searchSales("",0,1);
+        QVERIFY(pos.salesError().isEmpty());
+        QCOMPARE(pos.sales().size(),50);
+        QVERIFY(pos.moreSales());
+        QCOMPARE(pos.customerSummary().value("purchase_count").toInt(),52);
+        QCOMPARE(pos.customerSummary().value("spent_cents").toLongLong(),6500);
+        QCOMPARE(pos.customerSummary().value("active").toInt(),0);
+        QCOMPARE(pos.customerSummary().value("last_purchase"),scalar("SELECT datetime('2026-09-10 12:00:00','localtime')"));
+        pos.searchSales("",1,1);
+        QCOMPARE(pos.sales().size(),2);
+        QVERIFY(!pos.moreSales());
+        QCOMPARE(pos.customerSummary().value("spent_cents").toLongLong(),6500);
+        pos.searchSales("1",0,1);
+        QCOMPARE(pos.sales().size(),1);
+        QCOMPARE(pos.customerSummary().value("purchase_count").toInt(),52);
+        QVERIFY(pos.loadSale(1));
+        QCOMPARE(pos.selectedSale().value("customer_id").toInt(),1);
+        pos.searchSales("54",0,1);
+        QVERIFY(pos.sales().isEmpty()); // Anonymous sale must not match.
+        pos.searchSales("",0,2);
+        QVERIFY(pos.sales().isEmpty());
+        QCOMPARE(pos.customerSummary().value("spent_cents").toInt(),0);
+        QCOMPARE(pos.customerSummary().value("purchase_count").toInt(),0);
+        QVERIFY(pos.customerSummary().value("last_purchase").isNull());
+        pos.searchSales("",0,999);
+        QVERIFY(!pos.salesError().isEmpty());
+        QVERIFY(pos.customerSummary().isEmpty());
+        pos.searchSales("",0,-1);
+        QVERIFY(!pos.salesError().isEmpty());
+        pos.searchSales();
+        QVERIFY(pos.salesError().isEmpty());
+        QVERIFY(pos.customerSummary().isEmpty());
+        QCOMPARE(pos.sales().size(),50);
+        QSqlQuery q;
+        QVERIFY(q.exec("ALTER TABLE sales RENAME TO unavailable_sales"));
+        pos.searchSales("",0,1);
+        QVERIFY(!pos.salesError().isEmpty());
+        QVERIFY(pos.customerSummary().isEmpty());
+        QVERIFY(pos.sales().isEmpty());
+    }
+    void customerOnSale() {
+        MHStore::Pos pos;
+        QSqlQuery q;
+        QVERIFY(q.exec("INSERT INTO customers(name) VALUES('Ana Cliente')"));
+        QVERIFY(q.exec("INSERT INTO customers(name,active) VALUES('Inativo',0)"));
+        pos.refreshCustomers();
+        QCOMPARE(pos.customers().size(),2);
+        QVERIFY(pos.openCash("0","Operador"));
+        const int session = pos.cash().value("id").toInt();
+        QVERIFY(pos.add(1));
+        QVERIFY(!pos.checkout(session,"pix","","Operador",999));
+        QVERIFY(!pos.checkout(session,"pix","","Operador",2));
+        QVERIFY(!pos.checkout(session,"pix","","Operador",-1));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+        QCOMPARE(pos.cart().size(),1);
+        QVERIFY(q.exec("UPDATE customers SET active=0 WHERE id=1"));
+        QVERIFY(!pos.checkout(session,"pix","","Operador",1));
+        QCOMPARE(scalar("SELECT stock_quantity FROM products WHERE id=1").toInt(),10);
+        QVERIFY(q.exec("UPDATE customers SET active=1 WHERE id=1"));
+        QVERIFY(pos.checkout(session,"pix","","Operador",1));
+        QVERIFY(pos.receipt().contains("Ana Cliente"));
+        QCOMPARE(scalar("SELECT customer_id FROM sales WHERE id=1").toInt(),1);
+        QVERIFY(pos.add(1));
+        QVERIFY(pos.checkout(session,"pix","","Operador"));
+        QVERIFY(scalar("SELECT customer_id FROM sales WHERE id=2").isNull());
+        QVERIFY(q.exec("UPDATE customers SET name='Nome atualizado',active=0 WHERE id=1"));
+        QSqlDatabase::database().close();
+        MHStore::Database::DatabaseManager db; QVERIFY(db.initialize(nullptr,path));
+        QVERIFY(pos.loadSale(1));
+        QCOMPARE(pos.selectedSale().value("customer_name").toString(),QString("Nome atualizado"));
+        QCOMPARE(pos.selectedSale().value("customer_id").toInt(),1);
+        QVERIFY(pos.loadSale(2));
+        QVERIFY(pos.selectedSale().value("customer_id").isNull());
+    }
+    void validation() {
+        MHStore::Pos pos;
+        QVERIFY(!pos.openCash("-1","Ana")); QVERIFY(!pos.openCash("0"," "));
+        QVERIFY(!pos.add(999)); QVERIFY(pos.add(1));
+        QVERIFY(!pos.setQuantity(1,11)); QVERIFY(!pos.setQuantity(1,-1));
+        QVERIFY(pos.openCash("0","Ana"));
+        const int session=pos.cash().value("id").toInt();
+        QVERIFY(!pos.checkout(session,"invalid","0","Ana"));
+        QVERIFY(!pos.checkout(session,"cash","nan","Ana"));
+        QVERIFY(!pos.checkout(session,"pix",""," "));
+        QSqlQuery q; QVERIFY(q.exec("UPDATE products SET active=0 WHERE id=1"));
+        QVERIFY(!pos.checkout(session,"pix","","Ana"));
+        QCOMPARE(scalar("SELECT COUNT(*) FROM sales").toInt(),0);
+    }
+};
+QTEST_GUILESS_MAIN(PosTest)
+#include "pos_test.moc"
