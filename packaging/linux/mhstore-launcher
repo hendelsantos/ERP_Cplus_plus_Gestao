@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+qt_root="${MHSTORE_QT_ROOT:-$HOME/.local/share/mhstore-qt}"
+if [[ -d "$qt_root/usr/lib/x86_64-linux-gnu/cmake/Qt6" ]]; then
+    export LD_LIBRARY_PATH="$qt_root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export QT_PLUGIN_PATH="$qt_root/usr/lib/x86_64-linux-gnu/qt6/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+    export QML_IMPORT_PATH="$qt_root/usr/lib/x86_64-linux-gnu/qt6/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+fi
+app="$(command -v MHStore || true)"
+if [[ -z "$app" ]]; then
+    for candidate in "$HOME/.local/bin/MHStore" /usr/bin/MHStore; do
+        if [[ -x "$candidate" ]]; then app="$candidate"; break; fi
+    done
+fi
+if [[ -z "$app" ]]; then
+    printf '%s\n' 'MH Store não está instalado.' >&2
+    exit 127
+fi
+exec "$app" "$@"

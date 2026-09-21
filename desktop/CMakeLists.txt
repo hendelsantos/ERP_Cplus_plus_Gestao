@@ -151,6 +151,7 @@ endforeach()
 # developer-specific LD_LIBRARY_PATH. CMake strips the build RPATH at install.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     install(PROGRAMS ../packaging/linux/mhstore-diagnostico DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(PROGRAMS ../packaging/linux/mhstore-launcher DESTINATION ${CMAKE_INSTALL_BINDIR})
     install(FILES ../packaging/linux/mhstore.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
     install(FILES ../packaging/linux/mhstore.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
     install(FILES ../docs/distribuicao.md DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/mhstore)

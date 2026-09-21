@@ -2,7 +2,7 @@
 Type=Application
 Name=MH Store
 Comment=Gestão comercial e PDV offline
-Exec=MHStore
+Exec=mhstore-launcher
 Icon=mhstore
 Terminal=false
 Categories=Office;Finance;
