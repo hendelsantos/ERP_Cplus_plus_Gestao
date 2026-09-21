@@ -14,6 +14,7 @@
 #include <QDir>
 
 #include <QGuiApplication>
+#include <QWindow>
 #include <QQmlApplicationEngine>
 #include <QDebug>
 #include <QtQml>
@@ -82,6 +83,11 @@ ApplicationWindow {
     engine.load(QUrl(QStringLiteral("qrc:/MHStore/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {
         return 1;
+    }
+    if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().constFirst())) {
+        window->show();
+        window->raise();
+        window->requestActivate();
     }
 
     backup.startScheduler();
