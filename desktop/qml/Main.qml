@@ -232,11 +232,16 @@ ApplicationWindow {
                         salesPage.showCustomer(customerId)
                         window.activeSection = "Vendas"
                     }
+                    onInventoryRequested: function(productCode) {
+                        inventoryPage.focusProduct(productCode)
+                        window.activeSection = "Estoque"
+                    }
                     catalog: catalogStore
                     section: window.isCatalog ? window.activeSection : "Produtos"
                 }
 
                 InventoryPage {
+                    id: inventoryPage
                     visible: window.activeSection === "Estoque"
                     Layout.fillWidth: true
                     Layout.fillHeight: true

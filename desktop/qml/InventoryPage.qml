@@ -8,6 +8,7 @@ ColumnLayout {
     property bool ready: false
     property int selectedId: 0
     property string selectedName: ""
+    function focusProduct(value) { searchField.text = value || ""; if (page.ready) page.reload() }
     spacing: 12
     function reload() {
         if (ready) inventory.refresh(searchField.text, critical.checked)

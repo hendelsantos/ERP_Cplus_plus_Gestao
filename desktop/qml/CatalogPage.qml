@@ -7,6 +7,7 @@ ColumnLayout {
     required property var catalog
     required property string section
     signal customerHistoryRequested(int customerId)
+    signal inventoryRequested(string productCode)
     spacing: 16
     property bool ready: false
 
@@ -67,6 +68,7 @@ ColumnLayout {
                     }
                 }
                 Button { text: "Compras"; visible: page.section === "Clientes"; onClicked: page.customerHistoryRequested(modelData.id) }
+                Button { text: "Estoque"; visible: page.section === "Produtos" && modelData.product_type !== "service"; onClicked: page.inventoryRequested(modelData.code) }
                 Button { text: "Editar"; onClicked: editor.openRecord(modelData) }
                 Button {
                     text: modelData.active ? "Inativar" : "Reativar"
