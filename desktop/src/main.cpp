@@ -85,9 +85,17 @@ ApplicationWindow {
         return 1;
     }
     if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().constFirst())) {
+        window->setVisibility(QWindow::Windowed);
+        window->showNormal();
         window->show();
         window->raise();
         window->requestActivate();
+        QTimer::singleShot(250, window, [window] {
+            window->showNormal();
+            window->show();
+            window->raise();
+            window->requestActivate();
+        });
     }
 
     backup.startScheduler();

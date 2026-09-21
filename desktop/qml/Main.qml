@@ -9,6 +9,8 @@ ApplicationWindow {
     minimumWidth: 960
     minimumHeight: 640
     visible: true
+    visibility: Window.Windowed
+    flags: Qt.Window
     title: "MH Store — " + (settingsStore.values.company || "Minha empresa")
     color: palette.window
 
