@@ -6,6 +6,10 @@ if [[ -d "$qt_root/usr/lib/x86_64-linux-gnu/cmake/Qt6" ]]; then
     export QT_PLUGIN_PATH="$qt_root/usr/lib/x86_64-linux-gnu/qt6/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
     export QML_IMPORT_PATH="$qt_root/usr/lib/x86_64-linux-gnu/qt6/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
 fi
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
+fi
+export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"
 app="$(command -v MHStore || true)"
 if [[ -z "$app" ]]; then
     for candidate in "$HOME/.local/bin/MHStore" /usr/bin/MHStore; do
