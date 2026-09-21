@@ -13,6 +13,8 @@ elif [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
     export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
 fi
 export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"
+export QSG_RHI_BACKEND="${QSG_RHI_BACKEND:-software}"
+export QT_WAYLAND_SHELL_INTEGRATION="${QT_WAYLAND_SHELL_INTEGRATION:-xdg-shell}"
 app="$(command -v MHStore || true)"
 if [[ -z "$app" ]]; then
     for candidate in "$HOME/.local/bin/MHStore" /usr/bin/MHStore; do
